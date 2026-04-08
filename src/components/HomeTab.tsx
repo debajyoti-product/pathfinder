@@ -37,20 +37,6 @@ const HomeTab = ({ onUpload }: HomeTabProps) => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium tracking-wide">
-          <Sparkles className="w-3.5 h-3.5" />
-          AI-Powered Career Intelligence
-        </div>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
-          Your next role,{" "}
-          <span className="text-gradient">engineered.</span>
-        </h1>
-        <p className="text-muted-foreground text-lg max-w-md mx-auto">
-          Drop your resume and let Pathfinder surface warm leads, craft personalized outreach, and accelerate your search.
-        </p>
-      </div>
-
       <div
         onDragEnter={handleDragIn}
         onDragLeave={handleDragOut}
