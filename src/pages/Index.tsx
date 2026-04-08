@@ -44,6 +44,16 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+              <Compass className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="text-lg font-bold tracking-tight text-foreground">Pathfinder</span>
+          </div>
+        </div>
+      </header>
 
       {/* Main */}
       <main className="max-w-6xl mx-auto px-6 py-8">
