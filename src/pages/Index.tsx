@@ -11,13 +11,17 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [draftTarget, setDraftTarget] = useState<JobResult | null>(null);
+  const [resumeUploaded, setResumeUploaded] = useState(false);
+  const [profileConfirmed, setProfileConfirmed] = useState(false);
 
   const handleUpload = () => {
+    setResumeUploaded(true);
     setActiveTab("profile");
   };
 
   const handleConfirm = (p: ProfileData) => {
     setProfile(p);
+    setProfileConfirmed(true);
     setActiveTab("results");
   };
 
@@ -33,6 +37,17 @@ const Index = () => {
   const handleBackToResults = () => {
     setDraftTarget(null);
     setActiveTab("results");
+  };
+
+  const tabEnabled: Record<string, boolean> = {
+    home: true,
+    profile: resumeUploaded,
+    results: profileConfirmed,
+    drafting: !!draftTarget,
+  };
+
+  const handleTabChange = (value: string) => {
+    if (tabEnabled[value]) setActiveTab(value);
   };
 
   const tabs = [
