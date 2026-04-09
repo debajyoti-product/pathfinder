@@ -71,7 +71,7 @@ const HomeTab = ({ onUpload }: HomeTabProps) => {
               {isDragging ? "Release to upload" : "Drop your resume here"}
             </p>
             <p className="text-muted-foreground text-sm mt-1">
-              PDF, DOCX, or TXT — max 10MB
+              PDF only — max 10MB
             </p>
           </div>
         </div>
