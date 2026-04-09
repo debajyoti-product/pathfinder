@@ -11,13 +11,17 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [draftTarget, setDraftTarget] = useState<JobResult | null>(null);
+  const [resumeUploaded, setResumeUploaded] = useState(false);
+  const [profileConfirmed, setProfileConfirmed] = useState(false);
 
   const handleUpload = () => {
+    setResumeUploaded(true);
     setActiveTab("profile");
   };
 
   const handleConfirm = (p: ProfileData) => {
     setProfile(p);
+    setProfileConfirmed(true);
     setActiveTab("results");
   };
 
@@ -33,6 +37,17 @@ const Index = () => {
   const handleBackToResults = () => {
     setDraftTarget(null);
     setActiveTab("results");
+  };
+
+  const tabEnabled: Record<string, boolean> = {
+    home: true,
+    profile: resumeUploaded,
+    results: profileConfirmed,
+    drafting: !!draftTarget,
+  };
+
+  const handleTabChange = (value: string) => {
+    if (tabEnabled[value]) setActiveTab(value);
   };
 
   const tabs = [
@@ -57,13 +72,14 @@ const Index = () => {
 
       {/* Main */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="w-full bg-muted/50 border border-border p-1 mb-8">
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="flex-1 gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-muted-foreground"
+                disabled={!tabEnabled[tab.value]}
+                className="flex-1 gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-muted-foreground disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <tab.icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{tab.label}</span>
