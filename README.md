@@ -1,12 +1,8 @@
-# 🚀 Pathfinder AI Suite
+# Pathfinder
 
-**The End-to-End Career Acceleration Engine**
+Pathfinder is an intelligent, AI-driven platform designed to automate the most tedious parts of the modern job search. By bridging the gap between resume parsing, real-time job discovery, and personalized outreach, Pathfinder empowers candidates to find and apply for roles seamlessly.
 
-Pathfinder is an intelligent, AI-driven platform designed to automate the most tedious parts of the modern job search. By bridging the gap between resume parsing, real-time job discovery, and personalized outreach, Pathfinder empowers candidates to find and apply for roles with unmatched speed and precision.
-
----
-
-## 📊 Product Overview (PM Lens)
+## Overview
 
 ### The Problem
 The current job market requires candidates to manually search through dozens of boards, parse dense job descriptions for relevance, find key stakeholders (Points of Contact), and craft hundreds of personalized "cold" emails. This process is fragmented, time-consuming, and prone to "application fatigue."
@@ -19,15 +15,11 @@ Pathfinder automates this entire lifecycle:
 4.  **Enriches** data by finding verified emails for hiring managers.
 5.  **Drafts** personalized outreach based on the candidate's unique profile and company news.
 
----
 
-## 🛠 Technical Architecture (Tech Lead Lens)
-
-Pathfinder is built with a **modular AI pipeline** architecture, utilizing **Server-Sent Events (SSE)** for a "streaming" UI experience that reduces perceived latency during complex multi-step background tasks.
-
-### Core Pipeline Flow
+### Core User Flow
 ```mermaid
 graph TD
+<<<<<<< HEAD
     A["PDF Resume"] -->|"PDF Parsing"| B("Llama 3.3: Structured Profile")
     B -->|"Serper API"| C("Job Discovery Engine")
     C -->|"SSE Streaming"| D{"Llama 3.3: Match Validation"}
@@ -42,6 +34,15 @@ graph TD
     *   **Llama 3.3 (via Groq):** Orchestrates resume parsing and high-speed matching/validation.
     *   **Claude 3.1 Haiku:** Generates highly personalized, context-aware outreach drafts with a natural human tone.
 *   **Intelligent Scraping:** Integrates **Jina Reader** to convert complex career pages into clean, LLM-ready markdown for precise JD analysis.
+=======
+    A[PDF Resume] -->|PDF Parsing| B(llama 3.3: Structured Profile)
+    B -->|Serper API| C(Job Discovery Engine)
+    C -->|SSE Streaming| D{llama 3.3: Match Validation}
+    D -->|Passed| E(Hunter.io: POC Discovery)
+    E -->|Verified Email| F(Claude 3.1 haiku: Personalized Draft)
+    F -->|Validation| G[Candidate Outreach Ready]
+
+>>>>>>> 64be3c50554fcf9709019204af00364acaba0282
 
 ---
 
@@ -51,8 +52,13 @@ graph TD
 | :--- | :--- |
 | **Frontend** | React (Vite), TypeScript, Tailwind CSS, Shadcn UI, Lucide Icons |
 | **Backend** | FastAPI (Python), Uvicorn, Server-Sent Events (SSE) |
+<<<<<<< HEAD
 | **Generative AI**| Llama 3.3 (Groq), Claude 3.1 Haiku (Anthropic) |
 | **External APIs**| Serper (Search), Hunter.io (Emails), Jina (Web Scraping) |
+=======
+| **Generative AI**| Claude Haiku 3.1, Groq (Llama-3.3-70b-versatile) |
+| **External APIs**| Serper (Search), Hunter.io (Emails), Jina reader (Web Scraping) |
+>>>>>>> 64be3c50554fcf9709019204af00364acaba0282
 
 ---
 
@@ -61,32 +67,7 @@ graph TD
 ### Prerequisites
 *   Node.js (v18+)
 *   Python 3.10+
-*   API Keys: Gemini, Groq, Serper, Hunter.io
-
-### Installation
-
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/debajyoti-product/pathfinder-ai-suite.git
-    cd pathfinder-ai-suite
-    ```
-
-2.  **Frontend Setup**
-    ```bash
-    npm install
-    npm run dev
-    ```
-
-3.  **Backend Setup**
-    ```bash
-    cd backend
-    python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    pip install -r requirements.txt
-    python main.py
-    ```
-
----
+*   API Keys: Claude, Groq, Serper, Hunter.io
 
 ## 📂 Project Organization
 
@@ -101,16 +82,3 @@ graph TD
 │   ├── components/        # Shadcn/Custom UI Components
 │   └── lib/api.ts         # SSE & Fetch handlers
 └── context.md             # Project State Manifesto (Dev Reference)
-```
-
----
-
-## 🗺 Roadmap
-
-- [ ] **POC Filter Hardening:** Enhanced logic to filtered out "former employees" from contact search.
-- [ ] **Multi-Resume Support:** Allow users to swap profiles for different job tracks/industries.
-- [ ] **Email Automation:** Direct integration with Gmail/Outlook for one-click sending.
-- [ ] **Advanced Domain Heuristic:** Better handling of Hunter.io lookups for complex TLDs.
-
----
-*Built with ❤️ by the Pathfinder Team.*
