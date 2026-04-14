@@ -19,7 +19,6 @@ Pathfinder automates this entire lifecycle:
 ### Core User Flow
 ```mermaid
 graph TD
-<<<<<<< HEAD
     A["PDF Resume"] -->|"PDF Parsing"| B("Llama 3.3: Structured Profile")
     B -->|"Serper API"| C("Job Discovery Engine")
     C -->|"SSE Streaming"| D{"Llama 3.3: Match Validation"}
@@ -34,15 +33,6 @@ graph TD
     *   **Llama 3.3 (via Groq):** Orchestrates resume parsing and high-speed matching/validation.
     *   **Claude 3.1 Haiku:** Generates highly personalized, context-aware outreach drafts with a natural human tone.
 *   **Intelligent Scraping:** Integrates **Jina Reader** to convert complex career pages into clean, LLM-ready markdown for precise JD analysis.
-=======
-    A[PDF Resume] -->|PDF Parsing| B(llama 3.3: Structured Profile)
-    B -->|Serper API| C(Job Discovery Engine)
-    C -->|SSE Streaming| D{llama 3.3: Match Validation}
-    D -->|Passed| E(Hunter.io: POC Discovery)
-    E -->|Verified Email| F(Claude 3.1 haiku: Personalized Draft)
-    F -->|Validation| G[Candidate Outreach Ready]
-
->>>>>>> 64be3c50554fcf9709019204af00364acaba0282
 
 ---
 
@@ -52,13 +42,8 @@ graph TD
 | :--- | :--- |
 | **Frontend** | React (Vite), TypeScript, Tailwind CSS, Shadcn UI, Lucide Icons |
 | **Backend** | FastAPI (Python), Uvicorn, Server-Sent Events (SSE) |
-<<<<<<< HEAD
 | **Generative AI**| Llama 3.3 (Groq), Claude 3.1 Haiku (Anthropic) |
-| **External APIs**| Serper (Search), Hunter.io (Emails), Jina (Web Scraping) |
-=======
-| **Generative AI**| Claude Haiku 3.1, Groq (Llama-3.3-70b-versatile) |
-| **External APIs**| Serper (Search), Hunter.io (Emails), Jina reader (Web Scraping) |
->>>>>>> 64be3c50554fcf9709019204af00364acaba0282
+| **External APIs**| Serper (Search), Hunter.io (Emails), Jina Reader (Web Scraping) |
 
 ---
 
@@ -82,3 +67,4 @@ graph TD
 │   ├── components/        # Shadcn/Custom UI Components
 │   └── lib/api.ts         # SSE & Fetch handlers
 └── context.md             # Project State Manifesto (Dev Reference)
+```
