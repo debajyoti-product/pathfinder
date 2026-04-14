@@ -2,9 +2,7 @@
 
 Pathfinder is an intelligent, AI-driven platform designed to automate the most tedious parts of the modern job search. By bridging the gap between resume parsing, real-time job discovery, and personalized outreach, Pathfinder empowers candidates to find and apply for roles seamlessly.
 
----
-
-## 📊 Product Overview (PM Lens)
+## Overview
 
 ### The Problem
 The current job market requires candidates to manually search through dozens of boards, parse dense job descriptions for relevance, find key stakeholders (Points of Contact), and craft hundreds of personalized "cold" emails. This process is fragmented, time-consuming, and prone to "application fatigue."
