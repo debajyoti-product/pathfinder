@@ -28,19 +28,19 @@ Pathfinder is built with a **modular AI pipeline** architecture, utilizing **Ser
 ### Core Pipeline Flow
 ```mermaid
 graph TD
-    A[PDF Resume] -->|PDF Parsing| B(Gemini: Structured Profile)
-    B -->|Serper API| C(Job Discovery Engine)
-    C -->|SSE Streaming| D{Groq: Match Validation}
-    D -->|Passed| E(Hunter.io: POC Discovery)
-    E -->|Verified Email| F(Gemini: Personalized Draft)
-    F -->|Validation| G[Candidate Outreach Ready]
+    A["PDF Resume"] -->|"PDF Parsing"| B("Llama 3.3: Structured Profile")
+    B -->|"Serper API"| C("Job Discovery Engine")
+    C -->|"SSE Streaming"| D{"Llama 3.3: Match Validation"}
+    D -->|"Passed"| E("Hunter.io: POC Discovery")
+    E -->|"Verified Email"| F("Claude 3.1 Haiku: Personalized Draft")
+    F -->|"Validation"| G["Candidate Outreach Ready"]
 ```
 
 ### Key Technical Pillars
 *   **Streaming Results:** The backend uses FastAPI + SSE to push job results to the frontend as they are discovered and validated, ensuring the user isn't stuck behind a loading spinner for minutes.
 *   **Multi-Model Strategy:** 
-    *   **Gemini 1.5:** Heavy lifting for resume parsing and creative drafting.
-    *   **Groq (Llama-3):** High-speed, low-latency validation and filtering.
+    *   **Llama 3.3 (via Groq):** Orchestrates resume parsing and high-speed matching/validation.
+    *   **Claude 3.1 Haiku:** Generates highly personalized, context-aware outreach drafts with a natural human tone.
 *   **Intelligent Scraping:** Integrates **Jina Reader** to convert complex career pages into clean, LLM-ready markdown for precise JD analysis.
 
 ---
@@ -51,7 +51,7 @@ graph TD
 | :--- | :--- |
 | **Frontend** | React (Vite), TypeScript, Tailwind CSS, Shadcn UI, Lucide Icons |
 | **Backend** | FastAPI (Python), Uvicorn, Server-Sent Events (SSE) |
-| **Generative AI**| Google Gemini, Groq (Llama-3.3-70b-versatile) |
+| **Generative AI**| Llama 3.3 (Groq), Claude 3.1 Haiku (Anthropic) |
 | **External APIs**| Serper (Search), Hunter.io (Emails), Jina (Web Scraping) |
 
 ---
