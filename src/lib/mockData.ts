@@ -3,14 +3,30 @@ export interface ProfileData {
   targetRoles: string[];
   experienceRange: string;
   remoteOnly: boolean;
+  actualYears?: number;
+  industry?: string;
+  location?: string;
+}
+
+export interface ProfileLead {
+  name: string;
+  currentRole: string;
+  linkedinUrl: string;
+  email?: string | null;
+  id?: string;
 }
 
 export interface JobResult {
   id: string;
   company: string;
-  name: string;
+  name?: string;
   jobTitle: string;
   linkedin: string;
+  team?: string | null;
+  requiredExperience?: string;
+  pocProfiles?: ProfileLead[];
+  confidence?: number;
+  reason?: string;
 }
 
 export interface CompanyResearch {
@@ -23,6 +39,7 @@ export const defaultProfile: ProfileData = {
   targetRoles: ["Senior Frontend Engineer", "Full-Stack Developer", "Staff Engineer"],
   experienceRange: "3-5 years",
   remoteOnly: false,
+  location: "India",
 };
 
 export const experienceOptions = [

@@ -1,18 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { X, Plus, Check, RotateCcw } from "lucide-react";
+import { X, Plus, Check, RotateCcw, MapPin } from "lucide-react";
 import { ProfileData, defaultProfile, experienceOptions } from "@/lib/mockData";
 
 interface ProfileTabProps {
+  initialProfile?: ProfileData | null;
   onConfirm: (profile: ProfileData) => void;
   onCancel: () => void;
 }
 
-const ProfileTab = ({ onConfirm, onCancel }: ProfileTabProps) => {
-  const [profile, setProfile] = useState<ProfileData>({ ...defaultProfile });
+const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) => {
+  const [profile, setProfile] = useState<ProfileData>(initialProfile || { ...defaultProfile });
+
+  useEffect(() => {
+    if (initialProfile) {
+      setProfile(initialProfile);
+    }
+  }, [initialProfile]);
   const [newSkill, setNewSkill] = useState("");
   const [newRole, setNewRole] = useState("");
 
@@ -121,6 +128,44 @@ const ProfileTab = ({ onConfirm, onCancel }: ProfileTabProps) => {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Location Section */}
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Location</h3>
+          <div className="flex gap-2">
+            <Input
+              value={profile.location || ""}
+              onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value }))}
+              placeholder="e.g. Bangalore, India"
+              className="h-10 text-sm bg-muted border-border"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 px-3 border-border text-primary hover:bg-primary/10"
+              onClick={async () => {
+                if ("geolocation" in navigator) {
+                  navigator.geolocation.getCurrentPosition(async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                      const data = await res.json();
+                      const city = data.address.city || data.address.town || data.address.village || "";
+                      const country = data.address.country || "";
+                      const locString = city ? `${city}, ${country}` : country;
+                      setProfile(p => ({ ...p, location: locString }));
+                    } catch (err) {
+                      console.error("Geocoding failed", err);
+                    }
+                  });
+                }
+              }}
+            >
+              <MapPin className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Identifying country-wide opportunities based on input.</p>
         </div>
       </div>
 

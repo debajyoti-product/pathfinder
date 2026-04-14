@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
-import { Upload, FileText, Sparkles } from "lucide-react";
+import { Upload, FileText, Loader2 } from "lucide-react";
 
 interface HomeTabProps {
-  onUpload: () => void;
+  onUpload: (file: File) => void;
+  isUploading?: boolean;
 }
 
-const HomeTab = ({ onUpload }: HomeTabProps) => {
+const HomeTab = ({ onUpload, isUploading = false }: HomeTabProps) => {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -16,8 +17,8 @@ const HomeTab = ({ onUpload }: HomeTabProps) => {
   const handleDragIn = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
-  }, []);
+    if (!isUploading) setIsDragging(true);
+  }, [isUploading]);
 
   const handleDragOut = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -30,19 +31,42 @@ const HomeTab = ({ onUpload }: HomeTabProps) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
-      onUpload();
+      if (isUploading) return;
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        onUpload(e.dataTransfer.files[0]);
+      }
     },
-    [onUpload]
+    [onUpload, isUploading]
   );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isUploading) return;
+    if (e.target.files && e.target.files.length > 0) {
+      onUpload(e.target.files[0]);
+    }
+  };
+
+  if (isUploading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+        <div className="text-center space-y-2">
+          <h3 className="text-xl font-semibold text-foreground">Reading Resume</h3>
+          <p className="text-muted-foreground">Extracting experience and skills with Gemini...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
-      <div
+      <label
         onDragEnter={handleDragIn}
         onDragLeave={handleDragOut}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        onClick={onUpload}
         className={`
           relative group cursor-pointer w-full max-w-lg rounded-2xl border-2 border-dashed p-12
           transition-all duration-300 ease-out
@@ -53,6 +77,7 @@ const HomeTab = ({ onUpload }: HomeTabProps) => {
           }
         `}
       >
+        <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
         <div className="flex flex-col items-center gap-4 text-center">
           <div
             className={`
@@ -75,7 +100,7 @@ const HomeTab = ({ onUpload }: HomeTabProps) => {
             </p>
           </div>
         </div>
-      </div>
+      </label>
     </div>
   );
 };

@@ -6,6 +6,7 @@ import ProfileTab from "@/components/ProfileTab";
 import ResultsTab from "@/components/ResultsTab";
 import DraftingTab from "@/components/DraftingTab";
 import { ProfileData, JobResult } from "@/lib/mockData";
+import { parseResume } from "@/lib/api";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -13,10 +14,21 @@ const Index = () => {
   const [draftTarget, setDraftTarget] = useState<JobResult | null>(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [profileConfirmed, setProfileConfirmed] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleUpload = () => {
-    setResumeUploaded(true);
-    setActiveTab("profile");
+  const handleUpload = async (file: File) => {
+    try {
+      setIsUploading(true);
+      const parsedData = await parseResume(file);
+      setProfile(parsedData);
+      setResumeUploaded(true);
+      setActiveTab("profile");
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Failed to parse resume");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleConfirm = (p: ProfileData) => {
@@ -29,8 +41,12 @@ const Index = () => {
     setActiveTab("home");
   };
 
-  const handleGenerate = (result: JobResult) => {
-    setDraftTarget(result);
+  const handleGenerate = (result: JobResult, pocName?: string, pocLinkedin?: string) => {
+    setDraftTarget({ 
+      ...result, 
+      name: pocName || result.name, 
+      linkedin: pocLinkedin || result.linkedin 
+    });
     setActiveTab("drafting");
   };
 
@@ -61,12 +77,21 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center">
-          <div className="flex items-center gap-2.5">
+          <button 
+            onClick={() => {
+              setActiveTab("home");
+              setProfile(null);
+              setDraftTarget(null);
+              setResumeUploaded(false);
+              setProfileConfirmed(false);
+            }} 
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+          >
             <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
               <Compass className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-foreground">Pathfinder</span>
-          </div>
+            <span className="text-lg font-bold tracking-tight text-foreground -mb-0.5">Pathfinder</span>
+          </button>
         </div>
       </header>
 
@@ -88,20 +113,20 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="home">
-            <HomeTab onUpload={handleUpload} />
+            <HomeTab onUpload={handleUpload} isUploading={isUploading} />
           </TabsContent>
 
           <TabsContent value="profile">
-            <ProfileTab onConfirm={handleConfirm} onCancel={handleCancel} />
+            <ProfileTab initialProfile={profile} onConfirm={handleConfirm} onCancel={handleCancel} />
           </TabsContent>
 
           <TabsContent value="results">
-            <ResultsTab onGenerate={handleGenerate} />
+            <ResultsTab profile={profile} onGenerate={handleGenerate} />
           </TabsContent>
 
           <TabsContent value="drafting">
             {draftTarget && (
-              <DraftingTab result={draftTarget} onBack={handleBackToResults} />
+              <DraftingTab result={draftTarget} profile={profile} onBack={handleBackToResults} />
             )}
           </TabsContent>
         </Tabs>
