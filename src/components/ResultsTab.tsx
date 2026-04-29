@@ -147,14 +147,16 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <a
-                    href={result.linkedin.startsWith("http") ? result.linkedin : `https://${result.linkedin}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
-                  >
-                    View Job <ExternalLink className="w-3 h-3" />
-                  </a>
+                  {result.linkedin && (
+                    <a
+                      href={result.linkedin.startsWith("http") ? result.linkedin : `https://${result.linkedin}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                    >
+                      View Job <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                   {result.confidence && (
                     <Badge
                       variant="secondary"

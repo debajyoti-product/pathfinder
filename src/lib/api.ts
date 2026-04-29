@@ -116,7 +116,7 @@ export async function streamDiscoverJobs(
             const data = JSON.parse(dataStr);
             if (data.error) {
               onError(data.error);
-            } else {
+            } else if (data && typeof data === 'object' && (data.id || data.company)) {
               onJobFound(data as JobResult);
             }
           } catch (e) {
