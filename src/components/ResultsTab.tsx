@@ -122,36 +122,52 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
               className="group rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all duration-200 p-5 flex flex-col gap-4"
             >
               {/* Header */} 
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Building2 className="w-5 h-5 text-primary" />
+              <div className="flex flex-col gap-3 flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Building2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-foreground truncate">{result.company}</h3>
+                      <p className="text-xs text-muted-foreground truncate">{result.jobTitle}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-foreground truncate">{result.company}</h3>
-                    <p className="text-xs text-muted-foreground truncate">{result.jobTitle}</p>
-                    <a
-                      href={result.linkedin.startsWith("http") ? result.linkedin : `https://${result.linkedin}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
-                    >
-                      View Job <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
+                  {result.requiredExperience && (
+                    <Badge variant="outline" className="text-[10px] bg-muted/50 border-border text-muted-foreground shrink-0">
+                      {result.requiredExperience}
+                    </Badge>
+                  )}
                 </div>
-                {result.confidence && (
-                  <Badge
-                    variant="secondary"
-                    className={`text-[10px] shrink-0 ${
-                      result.confidence >= 0.85
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                    }`}
-                  >
-                    {Math.round(result.confidence * 100)}% fit
-                  </Badge>
+
+                {result.reason && (
+                  <p className="text-[11px] text-muted-foreground leading-relaxed bg-muted/30 p-2 rounded-lg border border-border/20 italic">
+                    " {result.reason} "
+                  </p>
                 )}
+
+                <div className="flex items-center justify-between">
+                  <a
+                    href={result.linkedin.startsWith("http") ? result.linkedin : `https://${result.linkedin}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                  >
+                    View Job <ExternalLink className="w-3 h-3" />
+                  </a>
+                  {result.confidence && (
+                    <Badge
+                      variant="secondary"
+                      className={`text-[10px] shrink-0 ${
+                        result.confidence >= 0.85
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                      }`}
+                    >
+                      {Math.round(result.confidence * 100)}% fit
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* Contacts */}

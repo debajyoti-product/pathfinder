@@ -103,12 +103,16 @@ def extract_job_team_info(jd_text: str, user_profile: dict) -> dict:
 You are an expert Recruitment Screener. Review the Job Description (JD) and the User Profile.
 
 Goal:
-1. Extract minimum and maximum years of experience required by JD.
-2. Identify the specific team or department (e.g. 'Payments Platform', 'Core Infrastructure'). If none is explicitly mentioned, return null.
+1. Extract minimum years of experience required by JD.
+2. Identify the specific team or department.
 3. Validate if the required experience matches the user's actual_years_exp. 
-   - STRICT RULE: If JD asks for N years and user has significantly less (e.g. JD: 8, User: 2), return isValidRange: false.
-   - If user is over-qualified (e.g. JD: 2, User: 10), return isValidRange: false (not a fit for senior).
-   - Only return true if there is a tight overlap or direct matches.
+
+STRICT VALIDATION RULES:
+- If JD asks for 5+ years and user has < 3 years, return isValidRange: false.
+- If JD asks for 8+ years and user has < 5 years, return isValidRange: false.
+- If JD title contains "Senior", "Lead", "Staff", "Principal", "Director", "Head" and user has < 4 years of experience, return isValidRange: false.
+- If JD is an "Intern" or "Associate" role and user has > 5 years, return isValidRange: false.
+- If the JD does not mention years but the seniority level is clear from the title, apply the above rules.
 
 User Profile:
 {json.dumps(user_profile)}
@@ -120,7 +124,8 @@ Return strictly a JSON object:
 {{
   "isValidRange": boolean,
   "teamName": "string or null",
-  "requiredExperience": "string (e.g., '3-5 years')"
+  "requiredExperience": "string (e.g., '5-7 years')",
+  "reason": "short explanation of the match/mismatch"
 }}
     """
     res = _call_gemini_json(prompt)

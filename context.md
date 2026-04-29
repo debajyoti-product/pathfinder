@@ -19,7 +19,7 @@
 
 **Data Flow:**
 1. **Extraction:** PDF Resume -> `backend/parse-resume` (Gemini) -> Structured JSON Profile.
-2. **Discovery:** Profile -> `backend/discover-jobs` (Streaming SSE) -> Serper Job Search -> Jina JD Scraping -> Groq Validation -> Serper Profile Search -> Hunter Email Lookup.
+2. **Discovery:** Profile -> `backend/discover-jobs` (Streaming SSE) -> Apify Job Search (LinkedIn/Indeed/Naukri) -> Jina JD Scraping -> Groq Validation -> Serper Profile Search -> Hunter Email Lookup.
 3. **Drafting:** Selected POC + Profile -> `backend/draft-email` -> Serper News Search -> Gemini Email Gen -> LLM Quality Evaluation.
 
 **Completed Milestones:**

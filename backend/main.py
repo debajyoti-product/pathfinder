@@ -31,12 +31,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class RoleDetail(BaseModel):
+    title: str
+    years_exp: float
+
+class ParsedProfile(BaseModel):
+    roles: List[RoleDetail]
+    skills: List[str]
+    industry: str
+    location: Optional[str] = None
+
 class ProfileData(BaseModel):
     job_title: str
     skills: List[str]
     actual_years_exp: int
     search_range: List[str]
     industry: str
+    location: Optional[str] = None
 
 def call_serper(query: str, search_type: str = "search", tbs: Optional[str] = None) -> dict:
     url = f"https://google.serper.dev/{search_type}"
@@ -81,19 +92,25 @@ async def parse_resume(file: UploadFile = File(...)):
         
     prompt = f"""
 You are a precise Data Extraction Agent. Your goal is to convert a resume into a structured search profile.
+Identify ALL distinct roles held by the candidate and the duration for each.
 
 Output Schema (JSON):
 {{
-  "job_title": "Primary role title",
+  "roles": [
+    {{
+      "title": "Role Title (e.g. Product Manager)",
+      "years_exp": 2.5
+    }}
+  ],
   "skills": ["skill1", "skill2"],
-  "actual_years_exp": integer,
-  "search_range": ["range1"],
-  "industry": "e.g. Fintech, SaaS"
+  "industry": "e.g. Fintech, SaaS",
+  "location": "e.g. San Francisco, CA"
 }}
 
-logic for range:
-calculate years of experience by the dates mentioned in each experience. for profiles with no experience, keep range as ["0-1 years"].
-If exp = 2, range = ["1-3 years"].
+Logic for roles:
+- Extract every distinct role title mentioned in the experience section.
+- Calculate years of experience for EACH role based on the dates.
+- Be precise (e.g. 1.5 years).
 
 Resume Text:
 {text[:5000]}
@@ -108,29 +125,101 @@ Resume Text:
 class DiscoverRequest(BaseModel):
     profile: ProfileData
 
+from config import (
+    GEMINI_API_KEY, 
+    DEEPSEEK_API_KEY, 
+    GROQ_API_KEY, 
+    SERPER_API_KEY, 
+    HUNTER_API_KEY,
+    APIFY_API_TOKEN
+)
+
+async def call_apify_actor(actor_id: str, input_data: dict):
+    if not APIFY_API_TOKEN:
+        return []
+    
+    # Apify API uses ~ instead of / for username/actor slugs
+    safe_actor_id = actor_id.replace("/", "~")
+    url = f"https://api.apify.com/v2/acts/{safe_actor_id}/run-sync-get-dataset-items?token={APIFY_API_TOKEN}"
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(url, json=input_data, timeout=120.0)
+            if res.status_code in [200, 201]:
+                return res.json()
+            else:
+                print(f"Apify Error {res.status_code}: {res.text}")
+    except Exception as e:
+        print(f"Apify Exception ({actor_id}): {e}")
+    return []
+
 @app.post("/api/discover-jobs")
 async def discover_jobs(req: DiscoverRequest):
     profile = req.profile.dict()
     
     async def job_generator():
-        job_title = profile.get("job_title", "Engineer")
-        exp_range = profile.get("search_range", ["1-3 years"])[0]
-        actual_exp = profile.get("actual_years_exp", 2)
-        
-        # Searching GreenHouse / Lever / Workday / etc
-        query = f'"{job_title}" site:boards.greenhouse.io OR site:jobs.lever.co'
-        
         try:
-            serper_res = call_serper(query)
-            organic = serper_res.get("organic", [])
-            top_urls = [r["link"] for r in organic[:10] if "link" in r]
+            job_title = profile.get("job_title", "Product Manager")
+            location = profile.get("location", "India")
             
+            print(f"--- Discovery Started ---")
+            print(f"Title: {job_title}, Location: {location}")
+            print(f"Apify Token Present: {bool(APIFY_API_TOKEN)}")
+            
+            # Sources to iterate through
+            all_urls = []
+            
+            # 1. Apify - LinkedIn (bebity/linkedin-jobs-scraper)
+            if APIFY_API_TOKEN:
+                yield f"data: {json.dumps({'status': 'Searching LinkedIn via Apify...'})}\n\n"
+                li_results = await call_apify_actor("bebity/linkedin-jobs-scraper", {
+                    "keywords": job_title,
+                    "location": location,
+                    "maxResults": 5,
+                })
+                print(f"LinkedIn Results: {len(li_results)}")
+                for item in li_results:
+                    url = item.get("jobUrl") or item.get("url")
+                    if url: all_urls.append((url, "LinkedIn"))
+
+                # 2. Apify - Indeed (misceres/indeed-scraper)
+                yield f"data: {json.dumps({'status': 'Searching Indeed via Apify...'})}\n\n"
+                ind_results = await call_apify_actor("misceres/indeed-scraper", {
+                    "position": job_title,
+                    "location": location,
+                    "maxItemsPerSearch": 5
+                })
+                print(f"Indeed Results: {len(ind_results)}")
+                for item in ind_results:
+                    url = item.get("url")
+                    if url: all_urls.append((url, "Indeed"))
+
+                # 3. Apify - Naukri (muhammetakkurtt/naukri-job-scraper)
+                yield f"data: {json.dumps({'status': 'Searching Naukri via Apify...'})}\n\n"
+                nk_results = await call_apify_actor("muhammetakkurtt/naukri-job-scraper", {
+                    "searchQuery": job_title,
+                    "location": location,
+                    "maximumJobs": 5
+                })
+                print(f"Naukri Results: {len(nk_results)}")
+                for item in nk_results:
+                    url = item.get("jobUrl") or item.get("url")
+                    if url: all_urls.append((url, "Naukri"))
+            else:
+                print("WARNING: APIFY_API_TOKEN is missing!")
+
+            print(f"Total Unique URLs found: {len(set(u for u, s in all_urls))}")
+
             jobs_found = 0
+            seen_urls = set()
             
-            for idx, url in enumerate(top_urls):
-                if jobs_found >= 2:
+            for url, source in all_urls:
+                if jobs_found >= 5: # Cap at 5 results
                     break
+                
+                if url in seen_urls: continue
+                seen_urls.add(url)
                     
+                yield f"data: {json.dumps({'status': f'Fetching JD from {source}...'})}\n\n"
                 jd_text = fetch_jina(url)
                 if not jd_text or len(jd_text) < 100:
                     continue
@@ -139,49 +228,61 @@ async def discover_jobs(req: DiscoverRequest):
                 eval_res = extract_job_team_info(jd_text, profile)
                 
                 if eval_res.get("isValidRange") is True:
-                    title = organic[idx].get("title", "Unknown")
-                    parts = title.split("-")
-                    
+                    # Basic Title cleaning
                     company_name = "Unknown"
                     if "greenhouse.io/" in url:
                         company_name = url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
                     elif "lever.co/" in url:
                         company_name = url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
+                    elif "linkedin.com" in url:
+                        company_name = source
                     else:
-                        company_name = parts[-2].strip() if len(parts) > 1 else parts[0].strip()
+                        company_name = url.split(".")[1].title() if "." in url else source
+                    
+                    # Clean company name
+                    company_name = company_name.split(" Careers")[0].split(" Jobs")[0].strip()
                         
                     team_name = eval_res.get("teamName")
                     
                     job_data = {
-                        "id": f"{query}-{idx}",
+                        "id": f"{hash(url)}",
                         "company": company_name,
                         "jobTitle": job_title,
                         "url": url,
-                        "linkedin": url, # keep compatibility with JobResult typing
+                        "linkedin": url,
                         "team": team_name,
                         "requiredExperience": eval_res.get("requiredExperience"),
+                        "reason": eval_res.get("reason"),
                         "pocProfiles": []
                     }
                     
-                    # Discover LinkedIn Profiles via Serper Google Snippets
-                    # We do NOT scrape linkedin.com directly
-                    profile_query = f'"{job_title}" "{company_name}" linkedin'
+                    # Improved POC Discovery
+                    yield f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n"
+                    search_queries = []
                     if team_name:
-                         profile_query = f'"{job_title}" "{company_name}" "{team_name}" linkedin'
-                         
-                    profile_res = call_serper(profile_query)
-                    profile_organic = profile_res.get("organic", [])
+                        search_queries.append(f'"{company_name}" "{team_name}" (Lead OR Manager OR Director OR Head) linkedin')
+                    
+                    search_queries.append(f'"{company_name}" "{job_title}" (Lead OR Manager OR Director OR Head) linkedin')
+                    search_queries.append(f'"{company_name}" ("Technical Recruiter" OR "Talent Acquisition" OR "Talent Lead") linkedin')
+                    
+                    profile_organic = []
+                    for q in search_queries:
+                        res = call_serper(q)
+                        profile_organic.extend(res.get("organic", []))
                     
                     profiles_added = 0
-                    for p in profile_organic[:5]:
-                        if profiles_added >= 3:
+                    seen_poc_links = set()
+                    
+                    for p in profile_organic:
+                        if profiles_added >= 4:
                             break
                         
                         link = p.get("link", "")
-                        if "linkedin.com/in/" not in link:
+                        if "linkedin.com/in/" not in link or link in seen_poc_links:
                             continue
+                        
+                        seen_poc_links.add(link)
                             
-                        # Extract Name and role from snippet/title
                         title = p.get("title", "")
                         if " - " in title:
                             name = title.split(" - ")[0].strip()
@@ -190,12 +291,12 @@ async def discover_jobs(req: DiscoverRequest):
                             name = title.strip()
                             current_role = "Unknown"
                             
-                        # Fetch email using Hunter API
+                        # Fetch email
                         email = None
                         if name and " " in name:
                             first_name, *last_names = name.split(" ")
                             last_name = " ".join(last_names)
-                            domain = company_name.replace(" ", "").lower() + ".com" # basic heuristic
+                            domain = company_name.replace(" ", "").lower() + ".com"
                             
                             hunter_url = f"https://api.hunter.io/v2/email-finder?domain={domain}&first_name={first_name}&last_name={last_name}&api_key={HUNTER_API_KEY}"
                             try:
@@ -203,8 +304,7 @@ async def discover_jobs(req: DiscoverRequest):
                                     h_res = client.get(hunter_url, timeout=10)
                                     if h_res.status_code == 200:
                                         email = h_res.json().get("data", {}).get("email")
-                            except:
-                                pass
+                            except: pass
                                 
                         job_data["pocProfiles"].append({
                             "name": name,
@@ -215,13 +315,11 @@ async def discover_jobs(req: DiscoverRequest):
                         profiles_added += 1
                         
                     jobs_found += 1
-                    # Yield as Server-Sent Event (SSE)
                     yield f"data: {json.dumps(job_data)}\n\n"
-                    
-            if jobs_found == 0:
-                 yield f"data: {json.dumps({'error': 'No matching jobs found.'})}\n\n"
-            
+
+            yield "event: close\ndata: {}\n\n"
         except Exception as e:
+            print(f"Generator Error: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             
         yield "event: close\ndata: {}\n\n"

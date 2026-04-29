@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "tunnel": "..\\..\\fitpass\\ngrok.exe http --url=crock-shock-unglazed.ngrok-free.dev 80"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

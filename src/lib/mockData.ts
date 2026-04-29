@@ -1,6 +1,13 @@
+export interface RoleDetail {
+  title: string;
+  yearsExp: number;
+  active: boolean;
+}
+
 export interface ProfileData {
   coreSkills: string[];
-  targetRoles: string[];
+  targetRoles: string[]; // Still keep this for display/compatibility
+  roles: RoleDetail[];   // Detailed roles from parser
   experienceRange: string;
   remoteOnly: boolean;
   actualYears?: number;
@@ -37,6 +44,11 @@ export interface CompanyResearch {
 export const defaultProfile: ProfileData = {
   coreSkills: ["React", "TypeScript", "Node.js", "Python", "System Design"],
   targetRoles: ["Senior Frontend Engineer", "Full-Stack Developer", "Staff Engineer"],
+  roles: [
+    { title: "Senior Frontend Engineer", yearsExp: 3, active: true },
+    { title: "Full-Stack Developer", yearsExp: 1, active: true },
+    { title: "Staff Engineer", yearsExp: 1, active: true }
+  ],
   experienceRange: "3-5 years",
   remoteOnly: false,
   location: "India",
