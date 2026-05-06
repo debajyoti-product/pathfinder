@@ -1,44 +1,43 @@
 # Token Optimization Logs
 
-> **⚠️ READ THIS FILE** alongside `context.md` before making architectural or LLM-related changes to optimize context window and token usage.
-
-This document tracks the estimated token expenditure for core AI actions in the Pathfinder AI Suite, along with actionable strategies to reduce token bloat.
+> **⚠️ READ THIS FILE** alongside `context.md` before making architectural or LLM changes to optimize context window and token usage.
 
 ---
 
-## 1. Action Token Categorization & Optimizations
+## 1. Action Token Expenditure & Optimizations
 
-### Action: Resume Parsing (`/api/parse-resume`)
-* **Context Required:** PDF Resume text (truncated to 5000 chars) + Extraction instructions (JSON schema).
-* **Estimated Tokens Spent:** ~1,500 - 2,000 input tokens | ~150 output tokens (per upload).
-* **Optimization Strategy:** (Truncate the resume text to the first 3000 characters instead of 5000, as core experience and skills are almost always at the top. Additionally, we could switch to a smaller, faster model like Llama-3-8B instead of 70B, as extracting JSON from structured text is well within the capabilities of smaller models.)
-
-### Action: Job Match Validation (`extract_job_team_info`)
-* **Context Required:** Full Job Description text (from Firecrawl/Jina) + User Profile JSON + Evaluation rules.
-* **Estimated Tokens Spent:** ~2,000 - 4,000 input tokens per URL | ~100 output tokens. **[HIGH COST]** Since we evaluate up to 30 URLs per discovery session, this can consume up to 60k-120k input tokens per search!
-* **Optimization Strategy:** (Massive token sink. We must aggressively truncate the scraped JD text to the first 3000-4000 characters. The "Requirements" and "About the Role" sections are usually near the top, making the bottom boilerplate irrelevant. We should also route this specific task to `Llama-3-8b-8192` instead of the 70B model, as it is a simple binary classification + short extraction task.)
-
-### Action: Email Drafting (`/api/draft-email`)
-* **Context Required:** User Profile JSON + Target Job Details + Serper News Snippets (recent company news) + Drafting rules.
-* **Estimated Tokens Spent:** ~1,000 input tokens | ~250 output tokens.
-* **Optimization Strategy:** (Strictly limit the Serper news context to the top 1 or 2 most relevant articles to prevent prompt bloat. If the user drafts multiple emails for the same company, we should implement a basic server-side cache for the generated draft or the parsed news.)
-
-### Action: Draft Evaluation (`evaluate_email_draft`)
-* **Context Required:** The generated draft email from the previous step + Evaluation rules.
-* **Estimated Tokens Spent:** ~400 input tokens | ~100 output tokens.
-* **Optimization Strategy:** (This is a redundant LLM call. We can optimize this by baking the "intent line" and quality constraints directly into the system prompt of the original drafting step, forcing the model to generate it correctly the first time. This completely eliminates this secondary LLM call.)
+| Flow / Action | Context Passed | Est. Input Tokens | Est. Output | 💡 Future Optimization Strategy |
+|--------------|----------------|-------------------|-------------|--------------------------------|
+| **Resume Parsing** <br/>(`/api/parse-resume`) | Resume Text + JSON Schema | ~1,500 - 2,000 | ~150 | Truncate resume to first 3000 chars. Switch to a smaller, faster model (e.g., Llama-3-8B) as JSON extraction is easy. |
+| **Job Validation** <br/>(`extract_job_team_info`) | Scraped JD (Markdown) + User Profile JSON | **~2,000 - 4,000**<br/>*(Up to 120k total/search)* | ~100 | **Massive token sink.** Aggressively truncate scraped JD to the first 3000 chars. Switch to an 8B model instead of 70B. |
+| **Email Drafting** <br/>(`/api/draft-email`) | Profile + Job Details + Serper News Snippets | ~1,000 | ~250 | Restrict Serper news to top 1-2 articles. Cache drafts for the same company to prevent redundant runs. |
+| **Draft Evaluation** <br/>(`evaluate_email_draft`) | Generated Draft + Eval Rules | ~400 | ~100 | **Redundant call.** Bake strict constraints directly into the drafting system prompt to eliminate this step entirely. |
 
 ---
 
-## 2. Model Roster & Credits
+## 2. IDE Assistant Models (Agent Credits)
 
-The application currently relies heavily on free-tier APIs. Usage is monitored by `backend/services/usage_tracker.py`.
+*This tracks the LLMs you use to converse with me (the agent).*
 
-| Provider | Model Name | Primary Use Case | Credits / Quota |
-|----------|------------|------------------|-----------------|
-| **Groq** | `llama-3.3-70b-versatile` | **ACTIVE** - Resume parsing, JD validation, Drafting, Eval | ~14,400 Requests/Day (Groq Free Tier limits apply: ~30k Tokens/Min) |
-| **Gemini** | `gemini-1.5-flash` / `pro` | *Unused* - Keys present but traffic routed to Groq | Standard free tier limits |
-| **DeepSeek** | `deepseek-chat` | *Unused* - Keys present but traffic routed to Groq | Standard API balance |
-| **Serper** | N/A (Search API) | Job discovery, LinkedIn POC search, News search | ~2,500 queries free |
-| **Hunter.io** | N/A (Email Lookup) | Fetching emails for discovered POCs | 25 requests/month (Free Tier) |
-| **Firecrawl** | N/A (Web Scraper) | Web scraping Job Descriptions (Markdown) | 500 credits (Free Tier) |
+| Model Name | Primary Capability | Total Credits | Credits Left |
+|------------|--------------------|---------------|--------------|
+| **Gemini 3.1 Pro (High)** | Deep reasoning, complex coding, high context | *(IDE Managed)* | *(IDE Managed)* |
+| **Gemini 3.1 Flash (Fast)** | Fast execution, simpler edits | *(IDE Managed)* | *(IDE Managed)* |
+| **Claude Opus 4.6** | Advanced coding, precise file editing | *(IDE Managed)* | *(IDE Managed)* |
+
+*(Note: Since I cannot automatically read your IDE's internal billing quota, you can manually update the credits here if you wish to track them).*
+
+---
+
+## 3. Application API Providers (Project Dependencies)
+
+*This tracks the third-party APIs used by the Pathfinder codebase. Tracked via `backend/services/usage_tracker.py`.*
+
+| Provider | Purpose | Model / Type | Total Quota | Status / Remaining |
+|----------|---------|--------------|-------------|--------------------|
+| **Groq** | All core LLM logic | `llama-3.3-70b-versatile` | ~14,400 Requests/Day | **ACTIVE** (~30k Tok/Min) |
+| **Gemini API** | Unused backup | `gemini-1.5-flash` | Standard Free Tier | *Keys in `.env`* |
+| **DeepSeek API** | Unused backup | `deepseek-chat` | Standard Balance | *Keys in `.env`* |
+| **Serper.dev** | Job & LinkedIn search | Google Search API | 2,500 queries | **ACTIVE** |
+| **Hunter.io** | Email Lookup | Email Finder API | 25 requests/month | **ACTIVE** |
+| **Firecrawl** | JD Markdown Scraping| Web Scraper API | 500 credits | **ACTIVE** |
