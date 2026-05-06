@@ -104,32 +104,24 @@ async def parse_resume(file: UploadFile = File(...)):
         err_msg = traceback.format_exc()
         raise HTTPException(status_code=500, detail=f"PDF Parsing Error: {str(e)} \n {err_msg}")
         
-    prompt = f"""You are a precise resume parser. Extract structured data from the resume below.
+    prompt = f"""You are a resume data extractor. Extract raw data ONLY — do NOT calculate anything.
 
-TODAY'S DATE: 2026-05-06
+From the Experience section, list every role with its exact start and end dates as written on the resume.
+From the Skills/Tools section, list all skills.
 
-=== ROLE EXTRACTION RULES ===
-1. Find every distinct job title in the Experience section.
-2. For EACH role, calculate duration using ONLY the date range given in that role's entry. Dates are in MM/YYYY format.
-   - Compute: (end_year - start_year) * 12 + (end_month - start_month), then divide by 12.
-   - Example: 04/2025 - 09/2025 = (2025-2025)*12 + (9-4) = 5 months = 0.42 years
-   - Example: 09/2023 - 05/2024 = (2024-2023)*12 + (5-9) = 8 months = 0.67 years
-   - Example: 01/2020 - 04/2021 = (2021-2020)*12 + (4-1) = 15 months = 1.25 years
-   - If end date is "Present", use 05/2026.
-   - CRITICAL: DO NOT use the resume summary or headline (e.g. "2+ years of experience") to infer duration. Those are marketing statements, not exact data. Use only the date ranges.
-3. List EACH role separately with its own duration, even if the same title appears at multiple companies.
+Rules:
+- Dates must be in MM/YYYY format. If the end date says "Present" or is missing, write "present".
+- List ALL roles, including every repeated title at different companies separately.
+- Skills: ONLY from a dedicated Skills/Tools/Competencies section. NOT from experience bullet points.
 
-=== SKILLS EXTRACTION RULES ===
-1. ONLY extract skills listed in a dedicated "Skills", "Technical Skills", "Tools", or "Competencies" section.
-2. DO NOT extract skills or tools mentioned inside experience bullet points.
-3. Keep skills as short keywords (e.g. "Figma", "SQL", "JIRA").
-
-=== OUTPUT FORMAT ===
-Return ONLY this JSON, nothing else:
+Return ONLY this JSON:
 {{
   "roles": [
-    {{"title": "Product Manager", "years_exp": 0.42}},
-    {{"title": "Associate Product Manager", "years_exp": 0.67}}
+    {{"title": "Product Manager", "start": "04/2025", "end": "09/2025"}},
+    {{"title": "Associate Product Manager", "start": "09/2023", "end": "05/2024"}},
+    {{"title": "Founder", "start": "12/2022", "end": "09/2023"}},
+    {{"title": "Associate Product Manager", "start": "04/2022", "end": "11/2022"}},
+    {{"title": "Analyst", "start": "01/2020", "end": "04/2021"}}
   ],
   "skills": ["Figma", "SQL", "JIRA"],
   "industry": "Fintech",
@@ -139,12 +131,50 @@ Return ONLY this JSON, nothing else:
 Resume:
 {text[:4000]}"""
 
-    
     result = _call_gemini_json(prompt)
     if "error" in result:
         raise HTTPException(status_code=500, detail=f"LLM Error: {result['error']}")
-    
-    return result
+
+    # --- Python handles all month math and role grouping ---
+    from datetime import date
+    today = date(2026, 5, 6)
+
+    def months_between(start_str: str, end_str: str) -> int:
+        try:
+            if end_str.lower().strip() == "present":
+                end_m, end_y = today.month, today.year
+            else:
+                ep = end_str.strip().split("/")
+                end_m, end_y = int(ep[0]), int(ep[1])
+            sp = start_str.strip().split("/")
+            start_m, start_y = int(sp[0]), int(sp[1])
+            return max(0, (end_y - start_y) * 12 + (end_m - start_m))
+        except:
+            return 0
+
+    # Group identical role titles, summing months across companies
+    title_months: dict[str, int] = {}
+    for r in result.get("roles", []):
+        title = r.get("title", "").strip()
+        start = r.get("start", "")
+        end = r.get("end", "")
+        if not title or not start or not end:
+            continue
+        m = months_between(start, end)
+        if m > 0:
+            title_months[title] = title_months.get(title, 0) + m
+
+    consolidated_roles = [
+        {"title": title, "years_exp": round(months / 12, 2)}
+        for title, months in title_months.items()
+    ]
+
+    return {
+        "roles": consolidated_roles,
+        "skills": result.get("skills", []),
+        "industry": result.get("industry", ""),
+        "location": result.get("location", ""),
+    }
 
 class DiscoverRequest(BaseModel):
     profile: ProfileData
