@@ -11,7 +11,7 @@ from pypdf import PdfReader
 from io import BytesIO
 
 from config import GEMINI_API_KEY, SERPER_API_KEY, HUNTER_API_KEY, GROQ_API_KEY, FIRECRAWL_API_KEY
-from firecrawl import FirecrawlApp
+from firecrawl import V1FirecrawlApp
 from evals import evaluate_job_match, evaluate_email_draft, _call_gemini_json, extract_job_team_info, get_country
 
 from services.serper_client import SerperClient
@@ -21,7 +21,7 @@ from services.hunter_client import HunterClient
 serper_client = SerperClient()
 metadata_parser = MetadataParser()
 hunter_client = HunterClient()
-firecrawl_app = FirecrawlApp(api_key=FIRECRAWL_API_KEY) if FIRECRAWL_API_KEY else None
+firecrawl_app = V1FirecrawlApp(api_key=FIRECRAWL_API_KEY) if FIRECRAWL_API_KEY else None
 
 app = FastAPI()
 
@@ -66,6 +66,7 @@ def call_serper(query: str, search_type: str = "search", tbs: Optional[str] = No
         return response.json()
 
 def fetch_jina(url: str) -> str:
+    """Fallback scraper using Jina Reader (used for LinkedIn which Firecrawl blocks)."""
     jina_url = f"https://r.jina.ai/{url}"
     try:
         with httpx.Client() as client:
@@ -73,6 +74,31 @@ def fetch_jina(url: str) -> str:
             return res.text
     except:
         return ""
+
+def fetch_jd(url: str) -> str:
+    """Fetch job description text. Uses Firecrawl scrape for supported sites,
+    falls back to Jina for LinkedIn (which Firecrawl blocks)."""
+    # LinkedIn is not supported by Firecrawl — use Jina fallback
+    if "linkedin.com" in url:
+        return fetch_jina(url)
+    
+    # Try Firecrawl scrape first
+    if firecrawl_app:
+        try:
+            result = firecrawl_app.scrape_url(
+                url, 
+                formats=['markdown'], 
+                only_main_content=True,
+                timeout=30000
+            )
+            md = result.markdown or ""
+            if len(md) > 100:
+                return md
+        except Exception as e:
+            print(f"Firecrawl scrape failed for {url}: {e}")
+    
+    # Fallback to Jina
+    return fetch_jina(url)
 
 @app.post("/api/parse-resume")
 async def parse_resume(file: UploadFile = File(...)):
@@ -154,40 +180,48 @@ async def discover_jobs(req: DiscoverRequest):
             # Sources to iterate through
             all_urls = []
             
-            # 1. Firecrawl - LinkedIn
-            if firecrawl_app:
-                yield f"data: {json.dumps({'status': 'Searching LinkedIn via Firecrawl...'})}\n\n"
-                try:
-                    li_search = await asyncio.to_thread(
-                        firecrawl_app.search, 
-                        f'site:linkedin.com/jobs "{job_title}" in "{location}"', 
-                        params={'limit': 5}
-                    )
-                    li_results = li_search.get("data", [])
-                    print(f"LinkedIn Results: {len(li_results)}")
-                    for item in li_results:
-                        url = item.get("url")
-                        if url: all_urls.append((url, "LinkedIn"))
-                except Exception as e:
-                    print(f"Firecrawl LinkedIn Error: {e}")
+            # 1. Serper - LinkedIn Jobs
+            yield f"data: {json.dumps({'status': 'Searching LinkedIn jobs...'})}\n\n"
+            try:
+                li_query = f'site:linkedin.com/jobs/view "{job_title}" "{location}"'
+                li_serper = await asyncio.to_thread(call_serper, li_query)
+                li_results = li_serper.get("organic", [])
+                print(f"LinkedIn Results: {len(li_results)}")
+                for item in li_results[:5]:
+                    url = item.get("link")
+                    if url and "linkedin.com/jobs" in url:
+                        all_urls.append((url, "LinkedIn"))
+            except Exception as e:
+                print(f"LinkedIn Search Error: {e}")
 
-                # 2. Firecrawl - Naukri
-                yield f"data: {json.dumps({'status': 'Searching Naukri via Firecrawl...'})}\n\n"
-                try:
-                    nk_search = await asyncio.to_thread(
-                        firecrawl_app.search, 
-                        f'site:naukri.com/job-listings "{job_title}" in "{location}"', 
-                        params={'limit': 5}
-                    )
-                    nk_results = nk_search.get("data", [])
-                    print(f"Naukri Results: {len(nk_results)}")
-                    for item in nk_results:
-                        url = item.get("url")
-                        if url: all_urls.append((url, "Naukri"))
-                except Exception as e:
-                    print(f"Firecrawl Naukri Error: {e}")
-            else:
-                print("WARNING: FIRECRAWL_API_KEY is missing!")
+            # 2. Serper - Naukri Jobs
+            yield f"data: {json.dumps({'status': 'Searching Naukri jobs...'})}\n\n"
+            try:
+                nk_query = f'site:naukri.com "{job_title}" "{location}"'
+                nk_serper = await asyncio.to_thread(call_serper, nk_query)
+                nk_results = nk_serper.get("organic", [])
+                print(f"Naukri Results: {len(nk_results)}")
+                for item in nk_results[:5]:
+                    url = item.get("link")
+                    if url and "naukri.com" in url:
+                        all_urls.append((url, "Naukri"))
+            except Exception as e:
+                print(f"Naukri Search Error: {e}")
+
+            # 3. Serper - Greenhouse & Lever Jobs
+            yield f"data: {json.dumps({'status': 'Searching job boards...'})}\n\n"
+            try:
+                board_query = f'"{job_title}" "{location}" site:boards.greenhouse.io OR site:jobs.lever.co'
+                board_serper = await asyncio.to_thread(call_serper, board_query)
+                board_results = board_serper.get("organic", [])
+                print(f"Board Results: {len(board_results)}")
+                for item in board_results[:5]:
+                    url = item.get("link")
+                    if url:
+                        source = "Greenhouse" if "greenhouse" in url else "Lever" if "lever" in url else "JobBoard"
+                        all_urls.append((url, source))
+            except Exception as e:
+                print(f"Board Search Error: {e}")
 
             print(f"Total Unique URLs found: {len(set(u for u, s in all_urls))}")
 
@@ -202,7 +236,7 @@ async def discover_jobs(req: DiscoverRequest):
                 seen_urls.add(url)
                     
                 yield f"data: {json.dumps({'status': f'Fetching JD from {source}...'})}\n\n"
-                jd_text = fetch_jina(url)
+                jd_text = await asyncio.to_thread(fetch_jd, url)
                 if not jd_text or len(jd_text) < 100:
                     continue
                     
@@ -210,16 +244,25 @@ async def discover_jobs(req: DiscoverRequest):
                 eval_res = extract_job_team_info(jd_text, profile)
                 
                 if eval_res.get("isValidRange") is True:
-                    # Basic Title cleaning
-                    company_name = "Unknown"
-                    if "greenhouse.io/" in url:
-                        company_name = url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
-                    elif "lever.co/" in url:
-                        company_name = url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
-                    elif "linkedin.com" in url:
-                        company_name = source
-                    else:
-                        company_name = url.split(".")[1].title() if "." in url else source
+                    # Extract company name — prefer LLM-extracted, fallback to URL heuristics
+                    company_name = eval_res.get("companyName") or "Unknown"
+                    if company_name == "Unknown":
+                        if "greenhouse.io/" in url:
+                            company_name = url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
+                        elif "lever.co/" in url:
+                            company_name = url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
+                        elif "linkedin.com" in url:
+                            # Try to extract from URL slug: /jobs/view/title-at-company-123
+                            try:
+                                slug = url.split("/jobs/view/")[1].split("?")[0]
+                                if "-at-" in slug:
+                                    company_name = slug.split("-at-")[1].rsplit("-", 1)[0].replace("-", " ").title()
+                            except:
+                                company_name = source
+                        elif "naukri.com" in url:
+                            company_name = source
+                        else:
+                            company_name = url.split(".")[1].title() if "." in url else source
                     
                     # Clean company name
                     company_name = company_name.split(" Careers")[0].split(" Jobs")[0].strip()

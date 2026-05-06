@@ -123,6 +123,7 @@ JD Snippet (First 3000 chars):
 Return strictly a JSON object:
 {{
   "isValidRange": boolean,
+  "companyName": "string - the hiring company name extracted from the JD",
   "teamName": "string or null",
   "requiredExperience": "string (e.g., '5-7 years')",
   "reason": "short explanation of the match/mismatch"
@@ -131,6 +132,7 @@ Return strictly a JSON object:
     res = _call_gemini_json(prompt)
     if "isValidRange" not in res:
         res["isValidRange"] = False
+        res["companyName"] = None
         res["teamName"] = None
         res["requiredExperience"] = "Unknown"
     return res
