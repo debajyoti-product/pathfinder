@@ -98,7 +98,7 @@ Profile → Serper search (3 sources) → URL collection → JD scraping → LLM
 **Source searches (via Serper, up to 10 results each):**
 1. `site:linkedin.com/jobs/view "{job_title}" "{location}"`
 2. `site:naukri.com "{job_title}" "{location}"`
-3. `"{job_title}" "{location}" site:boards.greenhouse.io OR site:jobs.lever.co`
+3. `"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)`
 
 **JD extraction (per URL):**
 - Non-LinkedIn → `Firecrawl V1FirecrawlApp.scrape_url()` (markdown, main content only)
@@ -231,3 +231,6 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-06 | Reduced POC profiles per job: 4→2 |
 | 2026-05-06 | Updated ResultsTab header to "Job Results for You" |
 | 2026-05-06 | Installed `firecrawl-py` in both global Python and `backend/venv` |
+| 2026-05-06 | Removed reason text from UI job cards to clean up design |
+| 2026-05-06 | Added filtering logic to avoid fetching generic company profiles masquerading as POCs |
+| 2026-05-06 | Broadened Serper job board search to include Workday, ZohoRecruit, SmartRecruiters, and AshbyHQ |
