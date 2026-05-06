@@ -208,17 +208,17 @@ async def discover_jobs(req: DiscoverRequest):
             except Exception as e:
                 print(f"Naukri Search Error: {e}")
 
-            # 3. Serper - Greenhouse & Lever Jobs
+            # 3. Serper - Other Job Boards
             yield f"data: {json.dumps({'status': 'Searching job boards...'})}\n\n"
             try:
-                board_query = f'"{job_title}" "{location}" site:boards.greenhouse.io OR site:jobs.lever.co'
+                board_query = f'"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)'
                 board_serper = await asyncio.to_thread(call_serper, board_query)
                 board_results = board_serper.get("organic", [])
                 print(f"Board Results: {len(board_results)}")
                 for item in board_results[:10]:
                     url = item.get("link")
                     if url:
-                        source = "Greenhouse" if "greenhouse" in url else "Lever" if "lever" in url else "JobBoard"
+                        source = "Greenhouse" if "greenhouse" in url else "Lever" if "lever" in url else "Workday" if "workday" in url else "JobBoard"
                         all_urls.append((url, source))
             except Exception as e:
                 print(f"Board Search Error: {e}")
@@ -315,6 +315,11 @@ async def discover_jobs(req: DiscoverRequest):
                         else:
                             name = title.strip()
                             current_role = "Unknown"
+                            
+                        # Filter out profiles where the user name contains the company name
+                        # This happens when Serper finds a generic company page instead of a real person
+                        if company_name.lower() in name.lower() or "hiring" in name.lower() or "jobs" in name.lower():
+                            continue
                             
                         # Fetch email
                         email = None

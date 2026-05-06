@@ -140,11 +140,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                   )}
                 </div>
 
-                {result.reason && (
-                  <p className="text-[11px] text-muted-foreground leading-relaxed bg-muted/30 p-2 rounded-lg border border-border/20 italic">
-                    " {result.reason} "
-                  </p>
-                )}
+
 
                 <div className="flex items-center justify-between">
                   {result.linkedin && (
