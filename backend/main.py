@@ -187,7 +187,7 @@ async def discover_jobs(req: DiscoverRequest):
                 li_serper = await asyncio.to_thread(call_serper, li_query)
                 li_results = li_serper.get("organic", [])
                 print(f"LinkedIn Results: {len(li_results)}")
-                for item in li_results[:5]:
+                for item in li_results[:10]:
                     url = item.get("link")
                     if url and "linkedin.com/jobs" in url:
                         all_urls.append((url, "LinkedIn"))
@@ -201,7 +201,7 @@ async def discover_jobs(req: DiscoverRequest):
                 nk_serper = await asyncio.to_thread(call_serper, nk_query)
                 nk_results = nk_serper.get("organic", [])
                 print(f"Naukri Results: {len(nk_results)}")
-                for item in nk_results[:5]:
+                for item in nk_results[:10]:
                     url = item.get("link")
                     if url and "naukri.com" in url:
                         all_urls.append((url, "Naukri"))
@@ -215,7 +215,7 @@ async def discover_jobs(req: DiscoverRequest):
                 board_serper = await asyncio.to_thread(call_serper, board_query)
                 board_results = board_serper.get("organic", [])
                 print(f"Board Results: {len(board_results)}")
-                for item in board_results[:5]:
+                for item in board_results[:10]:
                     url = item.get("link")
                     if url:
                         source = "Greenhouse" if "greenhouse" in url else "Lever" if "lever" in url else "JobBoard"
@@ -229,7 +229,7 @@ async def discover_jobs(req: DiscoverRequest):
             seen_urls = set()
             
             for url, source in all_urls:
-                if jobs_found >= 5: # Cap at 5 results
+                if jobs_found >= 10: # Cap at 10 results
                     break
                 
                 if url in seen_urls: continue
@@ -299,7 +299,7 @@ async def discover_jobs(req: DiscoverRequest):
                     seen_poc_links = set()
                     
                     for p in profile_organic:
-                        if profiles_added >= 4:
+                        if profiles_added >= 2:
                             break
                         
                         link = p.get("link", "")

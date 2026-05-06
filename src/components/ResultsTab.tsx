@@ -94,10 +94,10 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Matched Contacts</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Job Results for You</h2>
           <p className="text-muted-foreground text-sm mt-1">
             {results.length > 0
-              ? `Found ${results.length} warm lead${results.length !== 1 ? "s" : ""} at companies matching your profile.`
+              ? "Includes job links & potential referral profiles"
               : "No matches found — try broadening your target roles or skills."}
           </p>
         </div>
