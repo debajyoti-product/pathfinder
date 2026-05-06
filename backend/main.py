@@ -10,7 +10,8 @@ import urllib.parse
 from pypdf import PdfReader
 from io import BytesIO
 
-from config import GEMINI_API_KEY, SERPER_API_KEY, HUNTER_API_KEY, GROQ_API_KEY
+from config import GEMINI_API_KEY, SERPER_API_KEY, HUNTER_API_KEY, GROQ_API_KEY, FIRECRAWL_API_KEY
+from firecrawl import FirecrawlApp
 from evals import evaluate_job_match, evaluate_email_draft, _call_gemini_json, extract_job_team_info, get_country
 
 from services.serper_client import SerperClient
@@ -20,6 +21,7 @@ from services.hunter_client import HunterClient
 serper_client = SerperClient()
 metadata_parser = MetadataParser()
 hunter_client = HunterClient()
+firecrawl_app = FirecrawlApp(api_key=FIRECRAWL_API_KEY) if FIRECRAWL_API_KEY else None
 
 app = FastAPI()
 
@@ -131,26 +133,10 @@ from config import (
     GROQ_API_KEY, 
     SERPER_API_KEY, 
     HUNTER_API_KEY,
-    APIFY_API_TOKEN
+    FIRECRAWL_API_KEY
 )
 
-async def call_apify_actor(actor_id: str, input_data: dict):
-    if not APIFY_API_TOKEN:
-        return []
-    
-    # Apify API uses ~ instead of / for username/actor slugs
-    safe_actor_id = actor_id.replace("/", "~")
-    url = f"https://api.apify.com/v2/acts/{safe_actor_id}/run-sync-get-dataset-items?token={APIFY_API_TOKEN}"
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.post(url, json=input_data, timeout=120.0)
-            if res.status_code in [200, 201]:
-                return res.json()
-            else:
-                print(f"Apify Error {res.status_code}: {res.text}")
-    except Exception as e:
-        print(f"Apify Exception ({actor_id}): {e}")
-    return []
+# Apify removed in favor of Firecrawl
 
 @app.post("/api/discover-jobs")
 async def discover_jobs(req: DiscoverRequest):
@@ -163,49 +149,45 @@ async def discover_jobs(req: DiscoverRequest):
             
             print(f"--- Discovery Started ---")
             print(f"Title: {job_title}, Location: {location}")
-            print(f"Apify Token Present: {bool(APIFY_API_TOKEN)}")
+            print(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
             
             # Sources to iterate through
             all_urls = []
             
-            # 1. Apify - LinkedIn (bebity/linkedin-jobs-scraper)
-            if APIFY_API_TOKEN:
-                yield f"data: {json.dumps({'status': 'Searching LinkedIn via Apify...'})}\n\n"
-                li_results = await call_apify_actor("bebity/linkedin-jobs-scraper", {
-                    "keywords": job_title,
-                    "location": location,
-                    "maxResults": 5,
-                })
-                print(f"LinkedIn Results: {len(li_results)}")
-                for item in li_results:
-                    url = item.get("jobUrl") or item.get("url")
-                    if url: all_urls.append((url, "LinkedIn"))
+            # 1. Firecrawl - LinkedIn
+            if firecrawl_app:
+                yield f"data: {json.dumps({'status': 'Searching LinkedIn via Firecrawl...'})}\n\n"
+                try:
+                    li_search = await asyncio.to_thread(
+                        firecrawl_app.search, 
+                        f'site:linkedin.com/jobs "{job_title}" in "{location}"', 
+                        params={'limit': 5}
+                    )
+                    li_results = li_search.get("data", [])
+                    print(f"LinkedIn Results: {len(li_results)}")
+                    for item in li_results:
+                        url = item.get("url")
+                        if url: all_urls.append((url, "LinkedIn"))
+                except Exception as e:
+                    print(f"Firecrawl LinkedIn Error: {e}")
 
-                # 2. Apify - Indeed (misceres/indeed-scraper)
-                yield f"data: {json.dumps({'status': 'Searching Indeed via Apify...'})}\n\n"
-                ind_results = await call_apify_actor("misceres/indeed-scraper", {
-                    "position": job_title,
-                    "location": location,
-                    "maxItemsPerSearch": 5
-                })
-                print(f"Indeed Results: {len(ind_results)}")
-                for item in ind_results:
-                    url = item.get("url")
-                    if url: all_urls.append((url, "Indeed"))
-
-                # 3. Apify - Naukri (muhammetakkurtt/naukri-job-scraper)
-                yield f"data: {json.dumps({'status': 'Searching Naukri via Apify...'})}\n\n"
-                nk_results = await call_apify_actor("muhammetakkurtt/naukri-job-scraper", {
-                    "searchQuery": job_title,
-                    "location": location,
-                    "maximumJobs": 5
-                })
-                print(f"Naukri Results: {len(nk_results)}")
-                for item in nk_results:
-                    url = item.get("jobUrl") or item.get("url")
-                    if url: all_urls.append((url, "Naukri"))
+                # 2. Firecrawl - Naukri
+                yield f"data: {json.dumps({'status': 'Searching Naukri via Firecrawl...'})}\n\n"
+                try:
+                    nk_search = await asyncio.to_thread(
+                        firecrawl_app.search, 
+                        f'site:naukri.com/job-listings "{job_title}" in "{location}"', 
+                        params={'limit': 5}
+                    )
+                    nk_results = nk_search.get("data", [])
+                    print(f"Naukri Results: {len(nk_results)}")
+                    for item in nk_results:
+                        url = item.get("url")
+                        if url: all_urls.append((url, "Naukri"))
+                except Exception as e:
+                    print(f"Firecrawl Naukri Error: {e}")
             else:
-                print("WARNING: APIFY_API_TOKEN is missing!")
+                print("WARNING: FIRECRAWL_API_KEY is missing!")
 
             print(f"Total Unique URLs found: {len(set(u for u, s in all_urls))}")
 
