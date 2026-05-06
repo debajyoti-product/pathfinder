@@ -3,7 +3,8 @@ import json
 from config import GROQ_API_KEY
 
 MODELS = [
-    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-8b-8192"
 ]
 
 def _call_gemini_json(prompt: str) -> dict:
@@ -112,7 +113,7 @@ STRICT VALIDATION RULES:
 - If JD asks for 8+ years and user has < 5 years, return isValidRange: false.
 - If JD title contains "Senior", "Lead", "Staff", "Principal", "Director", "Head" and user has < 4 years of experience, return isValidRange: false.
 - If JD is an "Intern" or "Associate" role and user has > 5 years, return isValidRange: false.
-- If the JD does not mention years but the seniority level is clear from the title, apply the above rules.
+- IMPORTANT: If the JD does not explicitly mention years of experience, and the title does not contain the senior keywords above, default to isValidRange: true. Do not assume a role is senior just based on standard titles like "Product Manager" or "Software Engineer".
 
 User Profile:
 {json.dumps(user_profile)}
