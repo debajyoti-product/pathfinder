@@ -110,24 +110,26 @@ TODAY'S DATE: 2026-05-06
 
 === ROLE EXTRACTION RULES ===
 1. Find every distinct job title in the Experience section.
-2. For each role, calculate the EXACT duration using start/end dates:
-   - Convert month ranges to decimals (e.g. Jan 2023 – Jun 2024 = 1.5 years)
-   - If a role is still ongoing ("Present"), use today's date (2026-05-06) as the end date
-   - If only a year range is given (e.g. 2022–2023), treat it as full years
-   - DO NOT guess or inflate durations. Be precise.
-3. Each role must be listed separately, even if at the same company.
+2. For EACH role, calculate duration using ONLY the date range given in that role's entry. Dates are in MM/YYYY format.
+   - Compute: (end_year - start_year) * 12 + (end_month - start_month), then divide by 12.
+   - Example: 04/2025 - 09/2025 = (2025-2025)*12 + (9-4) = 5 months = 0.42 years
+   - Example: 09/2023 - 05/2024 = (2024-2023)*12 + (5-9) = 8 months = 0.67 years
+   - Example: 01/2020 - 04/2021 = (2021-2020)*12 + (4-1) = 15 months = 1.25 years
+   - If end date is "Present", use 05/2026.
+   - CRITICAL: DO NOT use the resume summary or headline (e.g. "2+ years of experience") to infer duration. Those are marketing statements, not exact data. Use only the date ranges.
+3. List EACH role separately with its own duration, even if the same title appears at multiple companies.
 
 === SKILLS EXTRACTION RULES ===
-1. ONLY extract skills explicitly listed in a dedicated "Skills", "Technical Skills", "Tools", or "Competencies" section.
-2. DO NOT extract skills mentioned in job description bullet points or project descriptions.
-3. Keep skills as concise keywords (e.g. "Figma", "SQL", "Product Roadmap").
+1. ONLY extract skills listed in a dedicated "Skills", "Technical Skills", "Tools", or "Competencies" section.
+2. DO NOT extract skills or tools mentioned inside experience bullet points.
+3. Keep skills as short keywords (e.g. "Figma", "SQL", "JIRA").
 
 === OUTPUT FORMAT ===
-Return ONLY this JSON, no explanations:
+Return ONLY this JSON, nothing else:
 {{
   "roles": [
-    {{"title": "Product Manager", "years_exp": 2.0}},
-    {{"title": "Associate Product Manager", "years_exp": 1.5}}
+    {{"title": "Product Manager", "years_exp": 0.42}},
+    {{"title": "Associate Product Manager", "years_exp": 0.67}}
   ],
   "skills": ["Figma", "SQL", "JIRA"],
   "industry": "Fintech",
