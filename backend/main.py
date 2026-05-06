@@ -82,8 +82,16 @@ def strip_jd_noise(text: str) -> str:
     return text[:2500]
 
 def fetch_jd(url: str) -> str:
-    """Fetch job description text via Jina Reader (universal, no credits used)."""
-    return fetch_jina(url)
+    """Fetch job description via Firecrawl (primary) or Jina Reader (fallback)."""
+    if "linkedin.com" in url or not firecrawl_app:
+        return fetch_jina(url)
+    
+    try:
+        res = firecrawl_app.scrape_url(url, params={"formats": ["markdown"], "onlyMainContent": True})
+        return res.get("markdown", fetch_jina(url))
+    except Exception as e:
+        print(f"Firecrawl failed for {url}: {e}")
+        return fetch_jina(url)
 
 
 @app.post("/api/parse-resume")
