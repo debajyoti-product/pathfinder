@@ -104,31 +104,39 @@ async def parse_resume(file: UploadFile = File(...)):
         err_msg = traceback.format_exc()
         raise HTTPException(status_code=500, detail=f"PDF Parsing Error: {str(e)} \n {err_msg}")
         
-    prompt = f"""
-You are a precise Data Extraction Agent. Your goal is to convert a resume into a structured search profile.
-Identify ALL distinct roles held by the candidate and the duration for each.
+    prompt = f"""You are a precise resume parser. Extract structured data from the resume below.
 
-Output Schema (JSON):
+TODAY'S DATE: 2026-05-06
+
+=== ROLE EXTRACTION RULES ===
+1. Find every distinct job title in the Experience section.
+2. For each role, calculate the EXACT duration using start/end dates:
+   - Convert month ranges to decimals (e.g. Jan 2023 – Jun 2024 = 1.5 years)
+   - If a role is still ongoing ("Present"), use today's date (2026-05-06) as the end date
+   - If only a year range is given (e.g. 2022–2023), treat it as full years
+   - DO NOT guess or inflate durations. Be precise.
+3. Each role must be listed separately, even if at the same company.
+
+=== SKILLS EXTRACTION RULES ===
+1. ONLY extract skills explicitly listed in a dedicated "Skills", "Technical Skills", "Tools", or "Competencies" section.
+2. DO NOT extract skills mentioned in job description bullet points or project descriptions.
+3. Keep skills as concise keywords (e.g. "Figma", "SQL", "Product Roadmap").
+
+=== OUTPUT FORMAT ===
+Return ONLY this JSON, no explanations:
 {{
   "roles": [
-    {{
-      "title": "Role Title (e.g. Product Manager)",
-      "years_exp": 2.5
-    }}
+    {{"title": "Product Manager", "years_exp": 2.0}},
+    {{"title": "Associate Product Manager", "years_exp": 1.5}}
   ],
-  "skills": ["skill1", "skill2"],
-  "industry": "e.g. Fintech, SaaS",
-  "location": "e.g. San Francisco, CA"
+  "skills": ["Figma", "SQL", "JIRA"],
+  "industry": "Fintech",
+  "location": "Bengaluru, India"
 }}
 
-Logic for roles:
-- Extract every distinct role title mentioned in the experience section.
-- Calculate years of experience for EACH role based on the dates.
-- Be precise (e.g. 1.5 years).
+Resume:
+{text[:4000]}"""
 
-Resume Text:
-{text[:5000]}
-    """
     
     result = _call_gemini_json(prompt)
     if "error" in result:
