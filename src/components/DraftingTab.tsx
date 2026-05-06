@@ -22,7 +22,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
     if (!profile) return;
     try {
       setLoading(true);
-      const res = await draftEmail(profile, result.jobTitle, result.company);
+      const res = await draftEmail(profile, result.jobTitle, result.company, result.name);
       setDraft(res.email);
       setResearch(res.news || []);
     } catch (e) {

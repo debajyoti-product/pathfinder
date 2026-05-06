@@ -380,6 +380,7 @@ class DraftRequest(BaseModel):
     profile: ProfileData
     job_title: str
     company: str
+    poc_name: Optional[str] = None
 
 @app.post("/api/v1/search-and-match")
 async def search_and_match(req: DiscoverRequest):
@@ -480,15 +481,18 @@ async def draft_email(req: DraftRequest):
     
     profile_summary = f"{req.profile.job_title} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
     
+    poc_context = f"- Hiring Contact: {req.poc_name}" if req.poc_name else ""
+    
     prompt = f"""
 You are an Expert Career Coach. Write a high-conversion cold email.
 Inputs:
 - User Resume Summary: {profile_summary}
 - Job Title: {req.job_title}
 - Company: {req.company}
+{poc_context}
 - Company News/Product Snippet: {news_snippet}
 Tone: Professional, brief, and high-signal. No fluff.
-Possible structure: greeting, hook (specific job with url & 1-2 core skills), body (connect user experience to company news wherever applicable), ask for referral.
+Possible structure: greeting (Address the Hiring Contact if available), hook (specific job with url & 1-2 core skills), body (connect user experience to company news wherever applicable), ask for referral.
 Max 150 words.
 Return JSON with key 'email': 'drafted text'
     """
