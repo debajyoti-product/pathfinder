@@ -100,43 +100,31 @@ Return strictly a JSON object:
     return res
 
 def extract_job_team_info(jd_text: str, user_profile: dict) -> dict:
-    prompt = f"""
-You are an expert Recruitment Screener. Review the Job Description (JD) and the User Profile.
+    user_exp = user_profile.get("actual_years_exp", 0)
+    prompt = f"""You are a recruitment screener. Given the Job Description snippet and the user's years of experience ({user_exp} years), decide if the user qualifies.
 
-Goal:
-1. Extract minimum years of experience required by JD.
-2. Identify the specific team or department.
-3. Validate if the required experience matches the user's actual_years_exp. 
+RULES (apply in order, stop at first match):
+1. If JD explicitly states 5+ years required and user has < 3 years → false.
+2. If JD explicitly states 8+ years required and user has < 5 years → false.
+3. If job title contains "Senior", "Lead", "Staff", "Principal", "Director", "Head", "VP" and user has < 4 years → false.
+4. If job title contains "Intern", "Trainee", "Associate" and user has > 5 years → false.
+5. If the JD does not explicitly state years AND title has no seniority keyword → true.
 
-STRICT VALIDATION RULES:
-- If JD asks for 5+ years and user has < 3 years, return isValidRange: false.
-- If JD asks for 8+ years and user has < 5 years, return isValidRange: false.
-- If JD title contains "Senior", "Lead", "Staff", "Principal", "Director", "Head" and user has < 4 years of experience, return isValidRange: false.
-- If JD is an "Intern" or "Associate" role and user has > 5 years, return isValidRange: false.
-- IMPORTANT: If the JD does not explicitly mention years of experience, and the title does not contain the senior keywords above, default to isValidRange: true. Do not assume a role is senior just based on standard titles like "Product Manager" or "Software Engineer".
+JD (first 1500 chars):
+{jd_text[:1500]}
 
-User Profile:
-{json.dumps(user_profile)}
-
-JD Snippet (First 3000 chars):
-{jd_text[:3000]}
-
-Return strictly a JSON object:
-{{
-  "isValidRange": boolean,
-  "companyName": "string - the hiring company name extracted from the JD",
-  "teamName": "string or null",
-  "requiredExperience": "string (e.g., '5-7 years')",
-  "reason": "short explanation of the match/mismatch"
-}}
-    """
+Return ONLY this JSON (no explanation outside JSON):
+{{"isValidRange": true or false, "requiredExperience": "e.g. 3-5 years or Not mentioned"}}"""
+    
     res = _call_gemini_json(prompt)
     if "isValidRange" not in res:
         res["isValidRange"] = False
-        res["companyName"] = None
-        res["teamName"] = None
-        res["requiredExperience"] = "Unknown"
+    res.setdefault("requiredExperience", "Unknown")
+    # Keep companyName/teamName as None — extracted separately via URL heuristics
+    res.setdefault("companyName", None)
+    res.setdefault("teamName", None)
     return res
+
 
 def evaluate_email_draft(news_snippet: str, drafted_email: str) -> dict:
     prompt = f"""

@@ -66,39 +66,19 @@ def call_serper(query: str, search_type: str = "search", tbs: Optional[str] = No
         return response.json()
 
 def fetch_jina(url: str) -> str:
-    """Fallback scraper using Jina Reader (used for LinkedIn which Firecrawl blocks)."""
+    """Fetch job description using Jina Reader — works for all sites including LinkedIn."""
     jina_url = f"https://r.jina.ai/{url}"
     try:
         with httpx.Client() as client:
-            res = client.get(jina_url, timeout=30)
+            res = client.get(jina_url, timeout=30, headers={"Accept": "text/plain"})
             return res.text
     except:
         return ""
 
 def fetch_jd(url: str) -> str:
-    """Fetch job description text. Uses Firecrawl scrape for supported sites,
-    falls back to Jina for LinkedIn (which Firecrawl blocks)."""
-    # LinkedIn is not supported by Firecrawl — use Jina fallback
-    if "linkedin.com" in url:
-        return fetch_jina(url)
-    
-    # Try Firecrawl scrape first
-    if firecrawl_app:
-        try:
-            result = firecrawl_app.scrape_url(
-                url, 
-                formats=['markdown'], 
-                only_main_content=True,
-                timeout=30000
-            )
-            md = result.markdown or ""
-            if len(md) > 100:
-                return md
-        except Exception as e:
-            print(f"Firecrawl scrape failed for {url}: {e}")
-    
-    # Fallback to Jina
+    """Fetch job description text via Jina Reader (universal, no credits used)."""
     return fetch_jina(url)
+
 
 @app.post("/api/parse-resume")
 async def parse_resume(file: UploadFile = File(...)):
