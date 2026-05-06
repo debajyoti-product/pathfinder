@@ -120,7 +120,7 @@ From the Skills/Tools section, list all skills.
 Rules:
 - Dates must be in MM/YYYY format. If the end date says "Present" or is missing, write "present".
 - List ALL roles, including every repeated title at different companies separately.
-- Skills: ONLY from a dedicated Skills/Tools/Competencies section. NOT from experience bullet points.
+- Skills: ONLY from a dedicated Skills/Tools/Competencies section. Extract as individual, short keywords (max 2-3 words). Even if the resume text is mashed together without commas, logically separate them into distinct skills. Strip out category prefixes like "Tools — " or "Product -".
 
 Return ONLY this JSON:
 {{
@@ -131,7 +131,7 @@ Return ONLY this JSON:
     {{"title": "Associate Product Manager", "start": "04/2022", "end": "11/2022"}},
     {{"title": "Analyst", "start": "01/2020", "end": "04/2021"}}
   ],
-  "skills": ["Figma", "SQL", "JIRA"],
+  "skills": ["Figma", "SQL", "JIRA", "Prototyping", "Prompt engineering"],
   "industry": "Fintech",
   "location": "Bengaluru, India"
 }}
@@ -156,6 +156,11 @@ Resume:
                 end_m, end_y = int(ep[0]), int(ep[1])
             sp = start_str.strip().split("/")
             start_m, start_y = int(sp[0]), int(sp[1])
+            
+            # Handle 2-digit years if the LLM extracted them (e.g. 01/20 -> 2020)
+            if start_y < 100: start_y += 2000
+            if end_y < 100: end_y += 2000
+            
             return max(0, (end_y - start_y) * 12 + (end_m - start_m))
         except:
             return 0
