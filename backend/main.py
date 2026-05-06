@@ -70,10 +70,16 @@ def fetch_jina(url: str) -> str:
     jina_url = f"https://r.jina.ai/{url}"
     try:
         with httpx.Client() as client:
-            res = client.get(jina_url, timeout=30, headers={"Accept": "text/plain"})
+            res = client.get(jina_url, timeout=30, headers={"Accept": "text/plain", "X-No-Cache": "true"})
             return res.text
     except:
         return ""
+
+def strip_jd_noise(text: str) -> str:
+    """Take only the first meaningful portion of a Jina dump to remove nav/sidebar noise."""
+    # Jina dumps often have a clean header block, then navigation links. 
+    # Grab the first 2500 chars which almost always contains title + requirements.
+    return text[:2500]
 
 def fetch_jd(url: str) -> str:
     """Fetch job description text via Jina Reader (universal, no credits used)."""
@@ -183,7 +189,8 @@ async def discover_jobs(req: DiscoverRequest):
                 print(f"Naukri Results: {len(nk_results)}")
                 for item in nk_results[:10]:
                     url = item.get("link")
-                    if url and "naukri.com" in url:
+                    # Only accept individual job pages, not listing/category pages
+                    if url and "naukri.com" in url and "/job-listings-" in url:
                         all_urls.append((url, "Naukri"))
             except Exception as e:
                 print(f"Naukri Search Error: {e}")
@@ -219,33 +226,40 @@ async def discover_jobs(req: DiscoverRequest):
                 jd_text = await asyncio.to_thread(fetch_jd, url)
                 if not jd_text or len(jd_text) < 100:
                     continue
+                
+                # Strip navigation noise before LLM
+                jd_clean = strip_jd_noise(jd_text)
                     
-                # Evaluate using Llama (Groq)
-                eval_res = extract_job_team_info(jd_text, profile)
+                # Evaluate using Llama (Groq) — only title + years of exp
+                eval_res = extract_job_team_info(jd_clean, profile)
                 
                 if eval_res.get("isValidRange") is True:
-                    # Extract company name — prefer LLM-extracted, fallback to URL heuristics
-                    company_name = eval_res.get("companyName") or "Unknown"
-                    if company_name == "Unknown":
-                        if "greenhouse.io/" in url:
-                            company_name = url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
-                        elif "lever.co/" in url:
-                            company_name = url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
-                        elif "linkedin.com" in url:
-                            # Try to extract from URL slug: /jobs/view/title-at-company-123
-                            try:
-                                slug = url.split("/jobs/view/")[1].split("?")[0]
-                                if "-at-" in slug:
-                                    company_name = slug.split("-at-")[1].rsplit("-", 1)[0].replace("-", " ").title()
-                            except:
-                                company_name = source
-                        elif "naukri.com" in url:
-                            company_name = source
-                        else:
-                            company_name = url.split(".")[1].title() if "." in url else source
+                    # Extract company name from URL slug heuristics
+                    company_name = "Unknown"
+                    if "greenhouse.io/" in url:
+                        company_name = url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
+                    elif "lever.co/" in url:
+                        company_name = url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
+                    elif "ashbyhq.com/" in url:
+                        company_name = url.split("ashbyhq.com/")[1].split("/")[0].replace("-", " ").title()
+                    elif "myworkdayjobs.com" in url:
+                        # e.g. autodesk.wd1.myworkdayjobs.com -> Autodesk
+                        company_name = url.split(".")[0].replace("https://", "").replace("http://", "").title()
+                    elif "smartrecruiters.com/" in url:
+                        company_name = url.split("smartrecruiters.com/")[1].split("/")[0].replace("-", " ").title()
+                    elif "linkedin.com" in url:
+                        # Try slug: /jobs/view/title-at-company-123
+                        try:
+                            slug = url.split("/jobs/view/")[1].split("?")[0]
+                            if "-at-" in slug:
+                                company_name = slug.split("-at-")[1].rsplit("-", 1)[0].replace("-", " ").title()
+                        except:
+                            company_name = "Unknown"
                     
-                    # Clean company name
+                    # Clean up suffixes
                     company_name = company_name.split(" Careers")[0].split(" Jobs")[0].strip()
+                    if not company_name or company_name == "Unknown":
+                        company_name = source
                         
                     team_name = eval_res.get("teamName")
                     
