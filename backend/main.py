@@ -172,15 +172,18 @@ Resume:
     def parse_date(d_str):
         if not d_str or str(d_str).lower() in ["present", "current", "now", "null"]:
             return datetime.datetime.now()
+        
+        # Clean up common LLM string quirks
+        d_str = str(d_str).strip().lower().replace("present", "").replace("current", "")
+        if not d_str:
+            return datetime.datetime.now()
+            
         try:
-            parts = str(d_str).split("/")
-            if len(parts) == 2:
-                return datetime.datetime(int(parts[1][-4:]), int(parts[0]), 1)
-            elif len(parts) == 1:
-                return datetime.datetime(int(parts[0][-4:]), 1, 1)
+            from dateutil import parser
+            # default=datetime.datetime(2000, 1, 1) ensures "2022" parses as Jan 1, 2022 instead of current month/day
+            return parser.parse(d_str, default=datetime.datetime(2000, 1, 1))
         except:
-            pass
-        return datetime.datetime.now()
+            return datetime.datetime.now()
 
     summary_map = {}
     for role in result.get("roles", []):
