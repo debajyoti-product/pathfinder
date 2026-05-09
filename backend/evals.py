@@ -11,7 +11,7 @@ QWEN_MODELS = [
     "qwen/qwen3-32b"
 ]
 
-def _call_gemini_json(prompt: str) -> dict:
+def _call_llama_json(prompt: str) -> dict:
     import time
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -134,7 +134,7 @@ Return strictly a JSON object:
   "confidence_score": 0.0-1.0
 }}
     """
-    res = _call_gemini_json(prompt)
+    res = _call_llama_json(prompt)
     if "match" not in res:
         res["match"] = False
         res["confidence_score"] = 0.0
@@ -204,7 +204,7 @@ def get_country(location: str) -> str:
     if not location:
         return ""
     prompt = f"Identify the country from this location string: '{location}'. Return strictly a JSON object: {{'country': 'string'}}"
-    res = _call_gemini_json(prompt)
+    res = _call_llama_json(prompt)
     if isinstance(res, dict) and "country" in res:
         return res["country"]
     return location # Fallback

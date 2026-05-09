@@ -12,7 +12,7 @@ from io import BytesIO
 
 from config import GEMINI_API_KEY, SERPER_API_KEY, HUNTER_API_KEY, GROQ_API_KEY, FIRECRAWL_API_KEY
 from firecrawl import V1FirecrawlApp
-from evals import evaluate_job_match, _call_gemini_json, extract_job_team_info, get_country
+from evals import evaluate_job_match, _call_llama_json, extract_job_team_info, get_country
 
 from services.serper_client import SerperClient
 from agents.metadata_parser import MetadataParser
@@ -161,7 +161,7 @@ Output Contract (JSON)
 Resume:
 {text[:4000]}"""
 
-    result = _call_gemini_json(prompt)
+    result = _call_llama_json(prompt)
     if "error" in result:
         raise HTTPException(status_code=500, detail=f"LLM Error: {result['error']}")
         
@@ -591,12 +591,12 @@ Evaluate your draft against these checkboxes:
   "has_intent_line": true
 }}"""
     
-    result = _call_gemini_json(prompt)
+    result = _call_llama_json(prompt)
     email_text = result.get("body", result.get("email", ""))
     
     # Eval retry fallback (just in case they ignored the mandatory line)
     if not result.get("has_intent_line", False):
-        result = _call_gemini_json(prompt + "\nCRITICAL: Ensure you include a specific Intent line that mentions the news naturally.")
+        result = _call_llama_json(prompt + "\nCRITICAL: Ensure you include a specific Intent line that mentions the news naturally.")
         email_text = result.get("body", result.get("email", ""))
         
     return {"email": email_text, "news": news_items[:3]}

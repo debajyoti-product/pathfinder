@@ -1,5 +1,5 @@
 import asyncio
-from evals import _call_gemini_json
+from evals import _call_llama_json
 import json
 
 resume_text = """
@@ -78,5 +78,5 @@ Output Contract (JSON)
 Resume:
 {resume_text}"""
 
-res = _call_gemini_json(prompt)
+res = _call_llama_json(prompt)
 print(json.dumps(res, indent=2))

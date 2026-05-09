@@ -65,7 +65,7 @@ Config loaded via: `backend/config.py` → `python-dotenv` → `os.getenv()`
 | File | Purpose |
 |------|---------|
 | `backend/main.py` | FastAPI app. Endpoints: `/api/parse-resume`, `/api/discover-jobs` (SSE), `/api/discover-referrals`, `/api/v1/search-and-match`, `/api/draft-email` |
-| `backend/evals.py` | LLM utility functions: `_call_gemini_json()` (actually calls Groq/Llama), `_call_qwen_json()` (calls Groq/Qwen), `evaluate_job_match()`, `extract_job_team_info()`, `get_country()` |
+| `backend/evals.py` | LLM utility functions: `_call_llama_json()` (actually calls Groq/Llama), `_call_qwen_json()` (calls Groq/Qwen), `evaluate_job_match()`, `extract_job_team_info()`, `get_country()` |
 | `backend/config.py` | Loads all env vars from `.env` |
 | `backend/services/serper_client.py` | Serper API wrapper class |
 | `backend/services/hunter_client.py` | Hunter.io API wrapper class |
@@ -172,7 +172,7 @@ Output: { email: "drafted text", news: [...], critique_notes: "..." }
 | **Firecrawl SDK versioning** | `firecrawl-py v4.24.1` default `FirecrawlApp` is v2 (only `parse`). Must use `V1FirecrawlApp` for `scrape_url` and `search`. |
 | **Resume text limit** | Gemini/Groq prompt truncates resume to first 5000 characters. |
 | **Domain heuristic** | Hunter.io email lookup assumes `companyname.com` — fails for non-standard TLDs or subsidiaries. |
-| **LLM function naming** | `_call_gemini_json()` in `evals.py` is misnamed — it actually calls **Groq API** with Qwen 3 32B. |
+
 | **Dual requirements.txt** | `backend/requirements.txt` for local dev; `api/requirements.txt` for Vercel. **Both must be kept in sync.** |
 | **Vercel env vars** | Must be set manually in Vercel Dashboard. `.env` file is gitignored and not deployed. |
 | **API throttling** | Usage tracker in `backend/services/usage_tracker.py` warns at 60% of free-tier limits. |
