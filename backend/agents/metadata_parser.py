@@ -1,19 +1,13 @@
 import json
+from evals import _call_llm_json, LLAMA_70B_MODELS
 from config import GROQ_API_KEY
-from services.usage_tracker import log_usage, is_over_limit
-import httpx
 
 class MetadataParser:
     def __init__(self):
         self.api_key = GROQ_API_KEY
-        self.model = "llama-3.3-70b-versatile"
-        self.url = "https://api.groq.com/openai/v1/chat/completions"
 
     def parse_poc_snippets(self, search_results, target_company_name: str, target_role_type: str):
         """Extract exactly two profiles per job from Serper search snippets."""
-        if is_over_limit("groq"):
-            raise Exception("Groq API limit reached (60% threshold). Process paused.")
-
         snippets = []
         for res in search_results.get("organic", []):
             snippets.append({
@@ -59,26 +53,8 @@ return 2 profiles per job.
 }}
 """
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"}
-        }
-
-        try:
-            with httpx.Client() as client:
-                response = client.post(self.url, headers=headers, json=data, timeout=30.0)
-                response.raise_for_status()
-                log_usage("groq")
-                content = response.json()["choices"][0]["message"]["content"]
-                return json.loads(content)
-        except (httpx.HTTPStatusError, httpx.ReadTimeout) as e:
-            print(f"MetadataParser API Error: {e}")
+        res = _call_llm_json(prompt, LLAMA_70B_MODELS, self.api_key, json_mode=True)
+        if "error" in res:
+            print(f"MetadataParser API Error: {res}")
             return {"profiles": []}
-        except (json.JSONDecodeError, KeyError, IndexError) as e:
-            print(f"MetadataParser Parse Error: {e}")
-            return {"profiles": []}
+        return res

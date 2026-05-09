@@ -255,3 +255,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | **Silent Bug Sweep:** `metadata_parser.py` now catches API and parse errors, returns empty `{"profiles": []}` gracefully. |
 | 2026-05-09 | **Silent Bug Sweep:** `jd_validator.py` now checks for `"error"` key in Qwen response and logs it. |
 | 2026-05-09 | **Silent Bug Sweep:** `usage_tracker.py` — fixed relative USAGE_FILE path (broke on Vercel), removed hardcoded ALERTS_FILE, added crash-safe JSON reads/writes. |
+| 2026-05-09 | **Refactor:** Unified all LLM caller logic into `_call_llm_json` in `evals.py` with integrated usage tracking and error handling. |
