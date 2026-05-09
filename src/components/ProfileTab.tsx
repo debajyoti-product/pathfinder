@@ -104,150 +104,92 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Content (Roles, Experience, Location) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Identified Roles */}
-          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Identified Roles</h3>
-              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Toggle to adjust total experience</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {profile.roles.map((role, idx) => (
-                <div 
-                  key={idx} 
-                  className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
-                    role.active 
-                      ? 'bg-secondary/50 border-primary/20 shadow-sm' 
-                      : 'bg-muted/30 border-transparent opacity-60'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Switch 
-                      checked={role.active} 
-                      onCheckedChange={() => toggleRole(idx)}
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-foreground leading-tight">{role.title}</span>
-                      <span className="text-xs text-muted-foreground">{role.yearsExp} years</span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => removeDetailedRole(idx)} 
-                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                  >
-                     <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Input
-                value={newRole}
-                onChange={(e) => setNewRole(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addRole()}
-                placeholder="Add a new role manually..."
-                className="h-10 text-sm bg-muted border-border"
-              />
-              <Button onClick={addRole} variant="secondary" className="h-10 px-4">
-                <Plus className="w-4 h-4 mr-2" /> Add
-              </Button>
-            </div>
+        {/* Identified Roles (Left, 2/3 width) */}
+        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Identified Roles</h3>
+            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Toggle to adjust total experience</span>
           </div>
-
-          {/* Experience and Location side-by-side */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Experience Range (Manual Override) */}
-            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Experience Range</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {experienceOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setProfile((p) => ({ ...p, experienceRange: opt }))}
-                    className={`
-                      px-2 py-2 rounded-lg text-xs font-medium transition-all duration-200
-                      ${
-                        profile.experienceRange === opt
-                          ? "bg-primary text-primary-foreground glow-sm shadow-md"
-                          : "bg-muted text-muted-foreground hover:text-foreground hover:bg-secondary"
-                      }
-                    `}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Location Section */}
-            <div className="rounded-xl border border-border bg-card p-5 space-y-4 flex flex-col justify-between">
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Location</h3>
-                <div className="flex gap-2">
-                  <Input
-                    value={profile.location || ""}
-                    onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value }))}
-                    placeholder="e.g. Bangalore, India"
-                    className="h-10 text-sm bg-muted border-border"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {profile.roles.map((role, idx) => (
+              <div 
+                key={idx} 
+                className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
+                  role.active 
+                    ? 'bg-secondary/50 border-primary/20 shadow-sm' 
+                    : 'bg-muted/30 border-transparent opacity-60'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Switch 
+                    checked={role.active} 
+                    onCheckedChange={() => toggleRole(idx)}
                   />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-10 px-3 border-border text-primary hover:bg-primary/10"
-                    onClick={async () => {
-                      if ("geolocation" in navigator) {
-                        navigator.geolocation.getCurrentPosition(async (position) => {
-                          const { latitude, longitude } = position.coords;
-                          try {
-                            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                            const data = await res.json();
-                            const city = data.address.city || data.address.town || data.address.village || "";
-                            const country = data.address.country || "";
-                            const locString = city ? `${city}, ${country}` : country;
-                            setProfile(p => ({ ...p, location: locString }));
-                          } catch (err) {
-                            console.error("Geocoding failed", err);
-                          }
-                        });
-                      }
-                    }}
-                  >
-                    <MapPin className="w-4 h-4" />
-                  </Button>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-foreground leading-tight">{role.title}</span>
+                    <span className="text-xs text-muted-foreground">{role.yearsExp} years</span>
+                  </div>
                 </div>
+                <button 
+                  onClick={() => removeDetailedRole(idx)} 
+                  className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                >
+                   <X className="w-4 h-4" />
+                </button>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-2">Identifying country-wide opportunities based on input.</p>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Right Content (Core Skills) */}
-        <div className="lg:col-span-1 h-full">
-          <div className="rounded-xl border border-border bg-card p-5 space-y-4 h-full flex flex-col">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Skills</h3>
-            <div className="flex flex-wrap gap-2 content-start flex-grow">
-              {profile.coreSkills.map((skill) => (
-                <Badge key={skill} variant="secondary" className="gap-1.5 pr-1.5 bg-secondary text-secondary-foreground py-1 px-2.5">
-                  {skill}
-                  <button onClick={() => removeSkill(skill)} className="hover:text-destructive transition-colors">
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-            <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
-              <Input
-                value={newSkill}
-                onChange={(e) => setNewSkill(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addSkill()}
-                placeholder="Add skill..."
-                className="h-9 text-sm bg-muted border-border"
-              />
-              <Button size="sm" variant="ghost" onClick={addSkill} className="h-9 w-9 p-0 text-primary hover:bg-primary/10">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
+        {/* Experience Range (Right, 1/3 width) */}
+        <div className="lg:col-span-1 rounded-xl border border-border bg-card p-5 space-y-4 h-full">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Experience Range</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {experienceOptions.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setProfile((p) => ({ ...p, experienceRange: opt }))}
+                className={`
+                  px-2 py-2 rounded-lg text-xs font-medium transition-all duration-200
+                  ${
+                    profile.experienceRange === opt
+                      ? "bg-primary text-primary-foreground glow-sm shadow-md"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }
+                `}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Core Skills (Full Width Below) */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Skills</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          {profile.coreSkills.map((skill) => (
+            <Badge key={skill} variant="secondary" className="gap-1.5 pr-1.5 bg-secondary text-secondary-foreground py-1 px-3 rounded-full">
+              {skill}
+              <button onClick={() => removeSkill(skill)} className="hover:text-destructive transition-colors">
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
+          
+          <div className="flex items-center gap-2 bg-secondary/50 rounded-full pl-3 pr-1 py-1 border border-border/50">
+            <input
+              type="text"
+              value={newSkill}
+              onChange={(e) => setNewSkill(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSkill()}
+              placeholder="Add skill..."
+              className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-24"
+            />
+            <Button size="icon" variant="default" onClick={addSkill} className="h-6 w-6 rounded-full bg-primary text-primary-foreground">
+              <Plus className="w-3 h-3" />
+            </Button>
           </div>
         </div>
       </div>

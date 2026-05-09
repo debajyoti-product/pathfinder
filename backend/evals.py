@@ -100,27 +100,57 @@ Return strictly a JSON object:
     return res
 
 def extract_job_team_info(jd_text: str, user_profile: dict) -> dict:
-    user_exp = user_profile.get("actual_years_exp", 0)
-    prompt = f"""You are a recruitment screener. Given the Job Description snippet and the user's years of experience ({user_exp} years), decide if the user qualifies.
+    exp_summary = user_profile.get("experience_summary", [])
+    if exp_summary and len(exp_summary) > 0:
+        total_years = exp_summary[0].get("total_years_numeric", user_profile.get("actual_years_exp", 0))
+        exp_range = exp_summary[0].get("experience_range", "Unknown")
+    else:
+        total_years = user_profile.get("actual_years_exp", 0)
+        exp_range = "Unknown"
+        
+    remote_only = str(user_profile.get("remote_only", False)).lower()
 
-RULES (apply in order, stop at first match):
-1. If JD explicitly states 5+ years required and user has < 3 years → false.
-2. If JD explicitly states 8+ years required and user has < 5 years → false.
-3. If job title contains "Senior", "Lead", "Staff", "Principal", "Director", "Head", "VP" and user has < 4 years → false.
-4. If job title contains "Intern", "Trainee", "Associate" and user has > 5 years → false.
-5. If the JD does not explicitly state years AND title has no seniority keyword → true.
+    prompt = f"""## System Persona
+You are a High-Precision Job Validation Agent. Your sole purpose is to enforce a strict qualification policy by comparing a candidate's normalized profile against scraped Job Description (JD) text. 
 
-JD (first 1500 chars):
-{jd_text[:1500]}
+## Input Data
+- **Candidate Range:** {exp_range} (from Agent 1)
+- **Candidate Years:** {total_years}
+- **Job Description:** {jd_text[:1500]}
 
-Return ONLY this JSON (no explanation outside JSON):
-{{"isValidRange": true or false, "requiredExperience": "e.g. 3-5 years or Not mentioned"}}"""
+## Step-by-Step Logic (Chain-of-Thought)
+1. **Requirement Extraction:** Scan the JD for explicit years of experience (e.g., "5+ years", "minimum 3 years"). If not found, look for seniority signals in the title.
+2. **Policy Enforcement:**
+    - **Strict Minimum:** If JD asks for X+ years and Candidate has < (X - 1), return `isValidRange: false`.
+    - **Seniority Gate:** If title contains [Senior, Lead, Staff, Principal, Director, VP] and Candidate has < 4 years, return `isValidRange: false`.
+    - **Over-Qualified Gate:** If title contains [Intern, Trainee, Junior] and Candidate has > 5 years, return `isValidRange: false`.
+    - **Ambiguity Rule:** If no years are mentioned and no seniority keywords exist, set `isValidRange: true` with a lower `confidence`.
+
+## Location & Remote Policy Enforcement (CRITICAL)
+- **Geographic Gate:** The job MUST be located in "India". If the JD or URL indicates a location outside of India, set `isValidRange: false`.
+- **Remote Toggle Logic:** {remote_only} (Boolean). 
+    - If `true`: The job MUST be "Remote", "Work from Home", or "Virtual" within India. If the JD requires an in-office presence in a specific city with no remote option, set `isValidRange: false`.
+    - If `false`: Accept both on-site (India-based) and remote (India-based) roles.
+- **Confidence Adjustment:** If the location is not explicitly stated as "India" but the company is a well-known Indian entity (e.g., Zomato, Swiggy), maintain a score of 0.8. If the location is ambiguous or potentially international, drop `confidence` to 0.4.
+
+## Confidence Signaling
+- **Score 1.0:** JD explicitly states years/experience range and candidate clearly meets/fails it.
+- **Score 0.7:** No years/experience range stated, but seniority keywords (e.g., "Senior") allow for a high-probability inference.
+- **Score 0.5:** JD is vague or poorly scraped; logic is based on title alone.
+
+## Output Contract (JSON ONLY)
+{{
+  "isValidRange": boolean,
+  "requiredExperience": "string (extracted requirement)",
+  "confidence": number (0.0 to 1.0),
+  "match_logic": "string (short 1-sentence reason for the decision)",
+  "companyName": "string (extracted from JD or URL)"
+}}"""
     
     res = _call_gemini_json(prompt)
     if "isValidRange" not in res:
         res["isValidRange"] = False
     res.setdefault("requiredExperience", "Unknown")
-    # Keep companyName/teamName as None — extracted separately via URL heuristics
     res.setdefault("companyName", None)
     res.setdefault("teamName", None)
     return res

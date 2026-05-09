@@ -72,6 +72,7 @@ export async function streamDiscoverJobs(
     search_range: [profile.experienceRange],
     industry: profile.industry || "General",
     location: profile.location || "India",
+    remote_only: profile.remoteOnly || false,
   };
 
   try {
