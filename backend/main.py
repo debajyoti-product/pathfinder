@@ -126,6 +126,13 @@ Normalization Rules (Strict)
 - **Experience Range Buckets:** You MUST map every `role_type` to exactly one of these: `0-1 year`, `1-3 years`, `3-5 years`, `5-8 years`, `8-12 years`, `12+ years`.
 - **Skills:** Extract as individual keywords from dedicated Skills/Tools section.
 
+Critical Calculation Constraints
+1. **Source Lockdown:** Calculate experience durations ONLY from the "Experience" section. STRICTLY IGNORE any years mentioned in the "Summary," "About Me," or "Professional Profile" sections, as these are often marketing fluff or contain non-experience numbers (e.g., "managed 10+ people").
+2. **Date Math Validation:** - Double-check your subtraction. If a role is from 04/2022 to 11/2022, that is 7 MONTHS (0.58 years), NOT 8 years. 
+   - Do not confuse any other numbers such as "85% success rate" or "INR 60L" with years.
+3. **No Duplicate Extraction:** Do not list the same company/role combination twice. If you see multiple highlights for one role, aggregate them into one duration entry.
+4. **Summary Exclusion:** The `total_years_numeric` must be the sum of the distinct roles extracted in `roles` only.
+
 Constraints
 - Format: Return ONLY valid JSON. No conversational filler.
 - Accuracy: Do not hallucinate skills not present in the text.
