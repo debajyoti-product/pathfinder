@@ -1,17 +1,16 @@
 import httpx
 import json
-from config import GROQ_API_KEY
+from config import QWEN_API_KEY
 
 MODELS = [
-    "llama-3.1-8b-instant",
-    "llama3-8b-8192"
+    "qwen/qwen3-32b"
 ]
 
 def _call_gemini_json(prompt: str) -> dict:
     import time
 
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Authorization": f"Bearer {QWEN_API_KEY}",
         "Content-Type": "application/json"
     }
     
