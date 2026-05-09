@@ -12,14 +12,19 @@ from io import BytesIO
 
 from config import GEMINI_API_KEY, SERPER_API_KEY, HUNTER_API_KEY, GROQ_API_KEY, FIRECRAWL_API_KEY
 from firecrawl import V1FirecrawlApp
-from evals import evaluate_job_match, _call_llama_json, extract_job_team_info, get_country
+from evals import evaluate_job_match, _call_llama_json, get_country
+from agents.resume_parser import ResumeParser
+from agents.jd_validator import extract_job_team_info
+from agents.email_drafter import EmailDrafter
 
 from services.serper_client import SerperClient
 from agents.metadata_parser import MetadataParser
 from services.hunter_client import HunterClient
 
 serper_client = SerperClient()
+resume_parser = ResumeParser()
 metadata_parser = MetadataParser()
+email_drafter = EmailDrafter()
 hunter_client = HunterClient()
 firecrawl_app = V1FirecrawlApp(api_key=FIRECRAWL_API_KEY) if FIRECRAWL_API_KEY else None
 
@@ -112,106 +117,11 @@ async def parse_resume(file: UploadFile = File(...)):
         import traceback
         err_msg = traceback.format_exc()
         raise HTTPException(status_code=500, detail=f"PDF Parsing Error: {str(e)} \n {err_msg}")
-        
-    prompt = f"""Persona: You are a high-precision Resume Data Analysis Agent for the Pathfinder AI Suite. Your goal is to transform unstructured resume data extracted from pypdf into a normalized JSON contract that serves as the "Single Source of Truth" for downstream job validation agents.
 
-Task
-1. **Raw Extraction:** Extract all roles, skills, and contact metadata.
-2. **Role Segregation:** Identify distinct career tracks (e.g., "Product Manager", "Software Engineer") 
-3. **Experience Normalization:** For each career track, calculate the total duration in years and map it to a specific range bucket.
-
-Normalization Rules (Strict)
-- **Role Type:** Group similar titles into logical categories (e.g., "Senior PM" and "Associate PM" both belong to the "Product Manager" category).
-- **Date Extraction:** Focus entirely on extracting the precise `start_date` and `end_date` (MM/YYYY) from the "Experience" section. A Python backend script will override your math, so just fetch the dates accurately!
-- **Experience Range Buckets:** Give your best estimate. The backend will override this too.
-- **Skills:** Extract as individual keywords from dedicated Skills/Tools section.
-
-Critical Calculation Constraints
-1. **Source Lockdown:** Extract experience dates ONLY from the "Experience" section. STRICTLY IGNORE any years mentioned in the "Summary," "About Me," or "Professional Profile" sections.
-2. **No Duplicate Extraction:** Do not list the same company/role combination twice.
-3. **SHORT REMINDER:** You do not need to do complex date math. Just accurately extract the `roles` array with start/end dates. The Python backend will calculate the exact duration and aggregate the `experience_summary`.
-
-Constraints
-- Format: Return ONLY valid JSON. No conversational filler.
-- Accuracy: Do not hallucinate skills not present in the text.
-- Location: Do NOT extract location.
-
-If a field is not present, return NULL only then.
-
-Output Contract (JSON)
-{{
-  "experience_summary": [
-    {{
-      "role_type": "string (e.g., 'Product Manager', 'Analyst')",
-      "total_years_numeric": number,
-      "experience_range": "string (one of: 0-1 year, 1-3 years, 3-5 years, 5-8 years, 8-12 years, 12+ years)"
-    }}
-  ],
-  "skills": ["string", "string"],
-  "industry": "string (e.g., Fintech, Logistics)",
-  "roles": [
-    {{
-      "title": "string",
-      "start_date": "MM/YYYY",
-      "end_date": "MM/YYYY or present"
-    }}
-  ]
-}}
-
-Resume:
-{text[:4000]}"""
-
-    result = _call_llama_json(prompt)
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=f"LLM Error: {result['error']}")
-        
-    # Python Date Math Override
-    import datetime
-    from dateutil.relativedelta import relativedelta
-    
-    def parse_date(d_str):
-        if not d_str or str(d_str).lower() in ["present", "current", "now", "null"]:
-            return datetime.datetime.now()
-        
-        # Clean up common LLM string quirks
-        d_str = str(d_str).strip().lower().replace("present", "").replace("current", "")
-        if not d_str:
-            return datetime.datetime.now()
-            
-        try:
-            from dateutil import parser
-            # default=datetime.datetime(2000, 1, 1) ensures "2022" parses as Jan 1, 2022 instead of current month/day
-            return parser.parse(d_str, default=datetime.datetime(2000, 1, 1))
-        except:
-            return datetime.datetime.now()
-
-    summary_map = {}
-    for role in result.get("roles", []):
-        start = parse_date(role.get("start_date"))
-        end = parse_date(role.get("end_date"))
-        diff = relativedelta(end, start)
-        years = diff.years + (diff.months / 12.0)
-        if years < 0: years = 0.0
-        
-        # Round up single month to avoid 0.0 if they just started
-        if years == 0 and (end.month != start.month or end.year != start.year):
-            years = 1/12.0
-            
-        title = role.get("title", "Unknown Role")
-        if title in summary_map:
-            summary_map[title] += years
-        else:
-            summary_map[title] = years
-
-    new_summary = []
-    for title, y in summary_map.items():
-        new_summary.append({
-            "role_type": title,
-            "total_years_numeric": round(y, 2),
-            "experience_range": "0-1 years" # Frontend recalculates exact bucket
-        })
-        
-    result["experience_summary"] = new_summary
+    try:
+        result = resume_parser.parse(text)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     return result
 
@@ -549,54 +459,18 @@ async def draft_email(req: DraftRequest):
     news_query = f'{req.company} news'
     serper_res = call_serper(news_query, search_type="news", tbs="qdr:m6")
     news_items = serper_res.get("news", [])
-    
+
     news_snippet = "\n".join([n.get("title", "") for n in news_items[:3]])
-    
     profile_summary = f"{req.profile.job_title} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
-    
-    poc_name = req.poc_name or 'Hiring Team'
-    poc_role = 'Hiring Team'
-    job_url = 'Unknown URL'
-    
-    prompt = f"""## System Persona
-You are a Tactical Career Coach and Cold Email Strategist. Your goal is to produce a high-signal, 100-word "Peer-to-Peer" cold email that connects a candidate's background to a specific company mission.
 
-## Input Context
-- **Candidate:** {profile_summary}
-- **Target:** {req.job_title} at {req.company} (URL: {job_url})
-- **Contact:** {poc_name} ({poc_role})
-- **Signal:** {news_snippet}
+    result = email_drafter.draft(
+        profile_summary=profile_summary,
+        job_title=req.job_title,
+        company=req.company,
+        poc_name=req.poc_name or "Hiring Team",
+        poc_role="Hiring Team",
+        job_url="Unknown URL",
+        news_snippet=news_snippet,
+    )
 
-## Step 1: Strategic Planning (Internal Monologue)
-- **Identify the Hook:** How does the {{news_snippet}} create a problem that the Candidate's skills can solve?
-- **Referral Context:** Mention that you are reaching out to them specifically as a {{poc_role}} within the team.
-
-## Step 2: The "No-Fluff" Drafting Constraints
-1. **Banned Openers:** DO NOT use "I hope this finds you well," "I am writing to," or "My name is".
-2. **The Intent Line:** You MUST integrate the {{news_snippet}} as a reason for your timing (e.g., "Given your recent move into [News], I thought my experience in [Skill] would be relevant for the [Job] role.").
-3. **Brevity:** Maximum 100 words. Every sentence must add value.
-
-## Step 3: Mandatory Self-Critique Gate
-Evaluate your draft against these checkboxes:
-- [ ] Does it start with a filler sentence? (If yes, delete it).
-- [ ] Is the {{news_snippet}} mentioned naturally or does it feel forced?
-- [ ] Is there a clear, low-friction call to action?
-- [ ] Is the tone "Peer-to-Peer" rather than "Applicant-to-Authority"?
-
-## Output Contract (JSON ONLY)
-{{
-  "subject": "string",
-  "body": "string",
-  "critique_notes": "Internal notes on why this version passed the quality gate",
-  "has_intent_line": true
-}}"""
-    
-    result = _call_llama_json(prompt)
-    email_text = result.get("body", result.get("email", ""))
-    
-    # Eval retry fallback (just in case they ignored the mandatory line)
-    if not result.get("has_intent_line", False):
-        result = _call_llama_json(prompt + "\nCRITICAL: Ensure you include a specific Intent line that mentions the news naturally.")
-        email_text = result.get("body", result.get("email", ""))
-        
-    return {"email": email_text, "news": news_items[:3]}
+    return {"email": result.get("body", ""), "news": news_items[:3]}

@@ -65,12 +65,19 @@ Config loaded via: `backend/config.py` → `python-dotenv` → `os.getenv()`
 | File | Purpose |
 |------|---------|
 | `backend/main.py` | FastAPI app. Endpoints: `/api/parse-resume`, `/api/discover-jobs` (SSE), `/api/discover-referrals`, `/api/v1/search-and-match`, `/api/draft-email` |
-| `backend/evals.py` | LLM utility functions: `_call_llama_json()` (actually calls Groq/Llama), `_call_qwen_json()` (calls Groq/Qwen), `evaluate_job_match()`, `extract_job_team_info()`, `get_country()` |
+| `backend/evals.py` | Shared LLM callers: `_call_llama_json()`, `_call_qwen_json()`, `evaluate_job_match()`, `get_country()` |
 | `backend/config.py` | Loads all env vars from `.env` |
 | `backend/services/serper_client.py` | Serper API wrapper class |
 | `backend/services/hunter_client.py` | Hunter.io API wrapper class |
 | `backend/services/usage_tracker.py` | API usage monitoring (free-tier limits) |
-| `backend/agents/metadata_parser.py` | Parses POC metadata from Serper search snippets |
+
+### Agents (`backend/agents/`) — All LLM agents live here
+| File | Agent | Model |
+|------|-------|-------|
+| `agents/resume_parser.py` | Agent 1: Resume Data Extraction + Python Date Math | Llama 3.1 8B (Groq) |
+| `agents/jd_validator.py` | Agent 3: Cynical Gatekeeper (3 Hard Gates) | Qwen 3 32B (Groq) |
+| `agents/metadata_parser.py` | Agent 5: High-Precision POC Entity Resolution | Llama 3.3 70B (Groq) |
+| `agents/email_drafter.py` | Agent 6: Tactical Career Coach + Self-Critique Loop | Llama 3.1 8B (Groq) |
 
 ### Vercel Deployment (`api/`)
 | File | Purpose |
@@ -241,3 +248,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | Fixed Python date parser fallback bugs using `dateutil.parser` for perfectly accurate LLM date math overrides. |
 | 2026-05-09 | Upgraded Email Drafting Agent to Tactical Career Coach persona with an integrated self-critique loop. |
 | 2026-05-09 | Removed the standalone critique agent (`evaluate_email_draft`) to halve API latency and tokens. |
+| 2026-05-09 | Reorganized all 4 LLM agents into `backend/agents/` folder (`resume_parser`, `jd_validator`, `metadata_parser`, `email_drafter`). |
