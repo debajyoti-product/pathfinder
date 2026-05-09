@@ -2,8 +2,10 @@ import json
 import os
 from datetime import datetime
 
-USAGE_FILE = "backend/api_usage.json"
-ALERTS_FILE = r"C:\Users\Debajyoti\.gemini\antigravity\brain\cfff6e2c-7edd-46ba-92de-cb79a33a9c23\alerts.md"
+# Resolve paths relative to this file's directory, not CWD
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+USAGE_FILE = os.path.join(_BASE_DIR, "api_usage.json")
+ALERTS_FILE = os.path.join(_BASE_DIR, "api_alerts.md")
 
 # Approximate Daily Limits (Free Tiers)
 LIMITS = {
@@ -17,19 +19,22 @@ def log_usage(service, count=1):
     
     usage_data = {}
     if os.path.exists(USAGE_FILE):
-        with open(USAGE_FILE, "r") as f:
-            try:
+        try:
+            with open(USAGE_FILE, "r") as f:
                 usage_data = json.load(f)
-            except:
-                usage_data = {}
+        except (json.JSONDecodeError, IOError):
+            usage_data = {}
     
     if now not in usage_data:
         usage_data[now] = {"serper": 0, "hunter": 0, "groq": 0}
     
-    usage_data[now][service] += count
+    usage_data[now][service] = usage_data[now].get(service, 0) + count
     
-    with open(USAGE_FILE, "w") as f:
-        json.dump(usage_data, f, indent=2)
+    try:
+        with open(USAGE_FILE, "w") as f:
+            json.dump(usage_data, f, indent=2)
+    except IOError as e:
+        print(f"Usage tracker write error: {e}")
     
     check_limits(now, usage_data[now])
 
@@ -50,16 +55,22 @@ def update_alerts_file(date, alerts):
     content += "\n\n".join(alerts)
     content += "\n\n---\n*Last updated: " + datetime.now().strftime("%H:%M:%S") + "*"
     
-    with open(ALERTS_FILE, "w") as f:
-        f.write(content)
+    try:
+        with open(ALERTS_FILE, "w") as f:
+            f.write(content)
+    except IOError as e:
+        print(f"Usage tracker alert write error: {e}")
 
 def is_over_limit(service):
     now = datetime.now().strftime("%Y-%m-%d")
     if not os.path.exists(USAGE_FILE):
         return False
         
-    with open(USAGE_FILE, "r") as f:
-        usage_data = json.load(f)
+    try:
+        with open(USAGE_FILE, "r") as f:
+            usage_data = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return False
         
     if now not in usage_data:
         return False
@@ -67,3 +78,4 @@ def is_over_limit(service):
     used = usage_data[now].get(service, 0)
     limit = LIMITS.get(service, 1000)
     return (used / limit) >= 0.6
+

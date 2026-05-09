@@ -67,9 +67,14 @@ def call_serper(query: str, search_type: str = "search", tbs: Optional[str] = No
         'X-API-KEY': SERPER_API_KEY,
         'Content-Type': 'application/json'
     }
-    with httpx.Client() as client:
-        response = client.post(url, headers=headers, json=payload, timeout=30)
-        return response.json()
+    try:
+        with httpx.Client() as client:
+            response = client.post(url, headers=headers, json=payload, timeout=30)
+            response.raise_for_status()
+            return response.json()
+    except Exception as e:
+        print(f"Serper API Error: {e}")
+        return {}
 
 def fetch_jina(url: str) -> str:
     """Fetch job description using Jina Reader — works for all sites including LinkedIn."""

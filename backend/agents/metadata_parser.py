@@ -69,9 +69,16 @@ return 2 profiles per job.
             "response_format": {"type": "json_object"}
         }
 
-        with httpx.Client() as client:
-            response = client.post(self.url, headers=headers, json=data, timeout=30.0)
-            response.raise_for_status()
-            log_usage("groq")
-            content = response.json()["choices"][0]["message"]["content"]
-            return json.loads(content)
+        try:
+            with httpx.Client() as client:
+                response = client.post(self.url, headers=headers, json=data, timeout=30.0)
+                response.raise_for_status()
+                log_usage("groq")
+                content = response.json()["choices"][0]["message"]["content"]
+                return json.loads(content)
+        except (httpx.HTTPStatusError, httpx.ReadTimeout) as e:
+            print(f"MetadataParser API Error: {e}")
+            return {"profiles": []}
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            print(f"MetadataParser Parse Error: {e}")
+            return {"profiles": []}

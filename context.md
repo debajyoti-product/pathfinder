@@ -250,3 +250,8 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | Removed the standalone critique agent (`evaluate_email_draft`) to halve API latency and tokens. |
 | 2026-05-09 | Reorganized all 4 LLM agents into `backend/agents/` folder (`resume_parser`, `jd_validator`, `metadata_parser`, `email_drafter`). |
 | 2026-05-09 | Fixed a silent bug in `_call_llama_json` where `last_error` was not being returned on failure. |
+| 2026-05-09 | **Silent Bug Sweep:** Added generic `Exception` handler to `_call_llama_json` (DNS/connection failures). |
+| 2026-05-09 | **Silent Bug Sweep:** `call_serper()` in `main.py` now catches HTTP errors instead of crashing the SSE stream. |
+| 2026-05-09 | **Silent Bug Sweep:** `metadata_parser.py` now catches API and parse errors, returns empty `{"profiles": []}` gracefully. |
+| 2026-05-09 | **Silent Bug Sweep:** `jd_validator.py` now checks for `"error"` key in Qwen response and logs it. |
+| 2026-05-09 | **Silent Bug Sweep:** `usage_tracker.py` — fixed relative USAGE_FILE path (broke on Vercel), removed hardcoded ALERTS_FILE, added crash-safe JSON reads/writes. |

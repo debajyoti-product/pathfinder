@@ -55,11 +55,13 @@ You are a Cynical Recruitment Gatekeeper. Your goal is to DISQUALIFY jobs. Assum
 }}"""
 
     res = _call_qwen_json(prompt)
-    if not res:
-        res = {}
+    if not res or "error" in res:
+        print(f"JD Validator Error: {res}")
+        res = {"isValidRange": False, "reasoning_trace": {"location_gate": "Error", "experience_gate": "Error", "remote_gate": "Error"}}
     if "isValidRange" not in res:
         res["isValidRange"] = False
     res.setdefault("required_years_extracted", "Unknown")
     res.setdefault("companyName", None)
     res.setdefault("teamName", None)
+    res.setdefault("reasoning_trace", {})
     return res

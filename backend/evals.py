@@ -55,6 +55,13 @@ def _call_llama_json(prompt: str) -> dict:
                     if e.response.status_code in [503, 500, 429] and attempt < 1:
                         time.sleep(1)
                         continue
+                    break
+                except Exception as e:
+                    last_error = {"error": f"Request Error ({model}): {str(e)}"}
+                    if attempt < 1:
+                        time.sleep(1)
+                        continue
+                    break
 
     return last_error or {"error": "All models failed"}
 
