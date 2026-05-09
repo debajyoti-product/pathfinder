@@ -249,3 +249,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | Upgraded Email Drafting Agent to Tactical Career Coach persona with an integrated self-critique loop. |
 | 2026-05-09 | Removed the standalone critique agent (`evaluate_email_draft`) to halve API latency and tokens. |
 | 2026-05-09 | Reorganized all 4 LLM agents into `backend/agents/` folder (`resume_parser`, `jd_validator`, `metadata_parser`, `email_drafter`). |
+| 2026-05-09 | Fixed a silent bug in `_call_llama_json` where `last_error` was not being returned on failure. |

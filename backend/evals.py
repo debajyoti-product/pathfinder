@@ -55,7 +55,9 @@ def _call_llama_json(prompt: str) -> dict:
                     if e.response.status_code in [503, 500, 429] and attempt < 1:
                         time.sleep(1)
                         continue
-                    break
+
+    return last_error or {"error": "All models failed"}
+
 
 def _call_qwen_json(prompt: str) -> dict:
     import time
