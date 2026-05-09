@@ -63,6 +63,37 @@ class ProfileData(BaseModel):
     location: Optional[str] = None
     remote_only: Optional[bool] = False
 
+def extract_company_name(url: str, source: Optional[str] = None) -> str:
+    """Heuristic to extract company name from job board URLs."""
+    company_name = "Unknown"
+    try:
+        if "greenhouse.io/" in url:
+            company_name = url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
+        elif "lever.co/" in url:
+            company_name = url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
+        elif "ashbyhq.com/" in url:
+            company_name = url.split("ashbyhq.com/")[1].split("/")[0].replace("-", " ").title()
+        elif "myworkdayjobs.com" in url:
+            # e.g. autodesk.wd1.myworkdayjobs.com -> Autodesk
+            company_name = url.split(".")[0].replace("https://", "").replace("http://", "").title()
+        elif "smartrecruiters.com/" in url:
+            company_name = url.split("smartrecruiters.com/")[1].split("/")[0].replace("-", " ").title()
+        elif "linkedin.com" in url:
+            try:
+                slug = url.split("/jobs/view/")[1].split("?")[0]
+                if "-at-" in slug:
+                    company_name = slug.split("-at-")[1].rsplit("-", 1)[0].replace("-", " ").title()
+            except:
+                pass
+    except:
+        pass
+
+    # Clean up suffixes
+    company_name = company_name.split(" Careers")[0].split(" Jobs")[0].strip()
+    if (not company_name or company_name == "Unknown") and source:
+        company_name = source
+    return company_name
+
 
 def fetch_jina(url: str) -> str:
     """Fetch job description using Jina Reader — works for all sites including LinkedIn."""
@@ -209,26 +240,7 @@ async def discover_jobs(req: DiscoverRequest):
                 
                 if eval_res.get("isValidRange") is True:
                     # Extract company name from URL slug heuristics
-                    company_name = "Unknown"
-                    if "greenhouse.io/" in url:
-                        company_name = url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
-                    elif "lever.co/" in url:
-                        company_name = url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
-                    elif "ashbyhq.com/" in url:
-                        company_name = url.split("ashbyhq.com/")[1].split("/")[0].replace("-", " ").title()
-                    elif "myworkdayjobs.com" in url:
-                        # e.g. autodesk.wd1.myworkdayjobs.com -> Autodesk
-                        company_name = url.split(".")[0].replace("https://", "").replace("http://", "").title()
-                    elif "smartrecruiters.com/" in url:
-                        company_name = url.split("smartrecruiters.com/")[1].split("/")[0].replace("-", " ").title()
-                    elif "linkedin.com" in url:
-                        # Try slug: /jobs/view/title-at-company-123
-                        try:
-                            slug = url.split("/jobs/view/")[1].split("?")[0]
-                            if "-at-" in slug:
-                                company_name = slug.split("-at-")[1].rsplit("-", 1)[0].replace("-", " ").title()
-                        except:
-                            company_name = "Unknown"
+                    company_name = extract_company_name(url, source)
                     
                     # Clean up suffixes
                     company_name = company_name.split(" Careers")[0].split(" Jobs")[0].strip()
@@ -382,11 +394,7 @@ async def search_and_match(req: DiscoverRequest):
             continue
             
         # Determine Company Name
-        company_name = "Unknown"
-        if "greenhouse.io/" in job_url:
-            company_name = job_url.split("greenhouse.io/")[1].split("/")[0].replace("-", " ").title()
-        elif "lever.co/" in job_url:
-            company_name = job_url.split("lever.co/")[1].split("/")[0].replace("-", " ").title()
+        company_name = extract_company_name(job_url)
         
         team_name = validation.get("teamName")
         
