@@ -268,3 +268,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | **Refactor:** Consolidated raw Hunter.io API calls into `HunterClient.find_email()` in `main.py` and optimized domain discovery to use `SerperClient.find_company_domain()`. |
 | 2026-05-09 | **Refactor:** Created `extract_company_name()` utility in `main.py` to DRY company extraction logic from Greenhouse, Lever, LinkedIn, and Workday URLs. |
 | 2026-05-09 | **Refactor:** Unified discovery logic into the streaming `/api/discover-jobs` endpoint, integrating `MetadataParser` (Agent 5) and removing the redundant `/api/v1/search-and-match` endpoint. |
+| 2026-05-09 | **Refactor:** Modularized the monolithic `job_generator()` function in `main.py` into distinct, independently testable steps (`collect_job_urls`, `fetch_and_clean_jd`, `find_poc_profiles`, `enrich_with_emails`). |

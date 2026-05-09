@@ -149,6 +149,96 @@ async def parse_resume(file: UploadFile = File(...)):
 class DiscoverRequest(BaseModel):
     profile: ProfileData
 
+async def collect_job_urls(job_title: str, location: str) -> list:
+    """Step 1: Collect job URLs from multiple sources concurrently."""
+    all_urls = []
+    
+    def search_li():
+        try:
+            res = serper_client.search(f'site:linkedin.com/jobs/view "{job_title}" "{location}"')
+            return [(i.get("link"), "LinkedIn") for i in res.get("organic", []) if "linkedin.com/jobs" in i.get("link", "")]
+        except Exception as e:
+            print(f"LinkedIn Search Error: {e}")
+            return []
+            
+    def search_nk():
+        try:
+            res = serper_client.search(f'site:naukri.com "{job_title}" "{location}"')
+            return [(i.get("link"), "Naukri") for i in res.get("organic", []) if "naukri.com" in i.get("link", "") and "/job-listings-" in i.get("link", "")]
+        except Exception as e:
+            print(f"Naukri Search Error: {e}")
+            return []
+
+    def search_boards():
+        try:
+            res = serper_client.search(f'"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)')
+            urls = []
+            for item in res.get("organic", []):
+                url = item.get("link")
+                if url:
+                    source = "Greenhouse" if "greenhouse" in url else "Lever" if "lever" in url else "Workday" if "workday" in url else "JobBoard"
+                    urls.append((url, source))
+            return urls
+        except Exception as e:
+            print(f"Board Search Error: {e}")
+            return []
+
+    li_urls, nk_urls, board_urls = await asyncio.gather(
+        asyncio.to_thread(search_li),
+        asyncio.to_thread(search_nk),
+        asyncio.to_thread(search_boards)
+    )
+    
+    all_urls.extend(li_urls)
+    all_urls.extend(nk_urls)
+    all_urls.extend(board_urls)
+    
+    # Deduplicate while preserving order
+    seen = set()
+    unique_urls = []
+    for url, source in all_urls:
+        if url not in seen:
+            seen.add(url)
+            unique_urls.append((url, source))
+            
+    return unique_urls
+
+async def fetch_and_clean_jd(url: str) -> str:
+    """Step 2: Fetch JD and clean navigation noise."""
+    jd_text = await asyncio.to_thread(fetch_jd, url)
+    if not jd_text or len(jd_text) < 100:
+        return ""
+    return strip_jd_noise(jd_text)
+
+def find_poc_profiles(company_name: str, team_name: str, job_title: str) -> list:
+    """Step 4: Find POC profiles via Serper and Agent 5 (MetadataParser)."""
+    poc_search_res = serper_client.search_linkedin_pocs(company_name, team_name, job_title)
+    extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res, company_name, job_title)
+    return extracted_pocs.get("profiles", [])[:2]
+
+def enrich_with_emails(poc_profiles: list, company_name: str) -> list:
+    """Step 5: Enrich POC profiles with email addresses from Hunter.io."""
+    cached_domain = serper_client.find_company_domain(company_name)
+    enriched = []
+    
+    for poc in poc_profiles:
+        name = poc.get("name", "")
+        first_name, last_name = "", ""
+        if " " in name:
+            parts = name.split(" ")
+            first_name = parts[0]
+            last_name = " ".join(parts[1:])
+        
+        email = hunter_client.find_email(first_name, last_name, cached_domain) if cached_domain else None
+            
+        enriched.append({
+            "name": name,
+            "currentRole": poc.get("current_role"),
+            "linkedinUrl": poc.get("linkedin_url"),
+            "email": email
+        })
+    return enriched
+
 
 # Apify removed in favor of Firecrawl
 
@@ -165,85 +255,31 @@ async def discover_jobs(req: DiscoverRequest):
             print(f"Title: {job_title}, Location: {location}")
             print(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
             
-            # Sources to iterate through
-            all_urls = []
+            yield f"data: {json.dumps({'status': 'Searching job boards concurrently...'})}\n\n"
             
-            # 1. Serper - LinkedIn Jobs
-            yield f"data: {json.dumps({'status': 'Searching LinkedIn jobs...'})}\n\n"
-            try:
-                li_query = f'site:linkedin.com/jobs/view "{job_title}" "{location}"'
-                li_serper = await asyncio.to_thread(serper_client.search, li_query)
-                li_results = li_serper.get("organic", [])
-                print(f"LinkedIn Results: {len(li_results)}")
-                for item in li_results[:10]:
-                    url = item.get("link")
-                    if url and "linkedin.com/jobs" in url:
-                        all_urls.append((url, "LinkedIn"))
-            except Exception as e:
-                print(f"LinkedIn Search Error: {e}")
-
-            # 2. Serper - Naukri Jobs
-            yield f"data: {json.dumps({'status': 'Searching Naukri jobs...'})}\n\n"
-            try:
-                nk_query = f'site:naukri.com "{job_title}" "{location}"'
-                nk_serper = await asyncio.to_thread(serper_client.search, nk_query)
-                nk_results = nk_serper.get("organic", [])
-                print(f"Naukri Results: {len(nk_results)}")
-                for item in nk_results[:10]:
-                    url = item.get("link")
-                    # Only accept individual job pages, not listing/category pages
-                    if url and "naukri.com" in url and "/job-listings-" in url:
-                        all_urls.append((url, "Naukri"))
-            except Exception as e:
-                print(f"Naukri Search Error: {e}")
-
-            # 3. Serper - Other Job Boards
-            yield f"data: {json.dumps({'status': 'Searching job boards...'})}\n\n"
-            try:
-                board_query = f'"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)'
-                board_serper = await asyncio.to_thread(serper_client.search, board_query)
-                board_results = board_serper.get("organic", [])
-                print(f"Board Results: {len(board_results)}")
-                for item in board_results[:10]:
-                    url = item.get("link")
-                    if url:
-                        source = "Greenhouse" if "greenhouse" in url else "Lever" if "lever" in url else "Workday" if "workday" in url else "JobBoard"
-                        all_urls.append((url, source))
-            except Exception as e:
-                print(f"Board Search Error: {e}")
-
-            print(f"Total Unique URLs found: {len(set(u for u, s in all_urls))}")
-
+            # Step 1: Collect
+            urls = await collect_job_urls(job_title, location)
+            print(f"Total Unique URLs found: {len(urls)}")
+            
             jobs_found = 0
-            seen_urls = set()
             
-            for url, source in all_urls:
+            for url, source in urls:
                 if jobs_found >= 10: # Cap at 10 results
                     break
-                
-                if url in seen_urls: continue
-                seen_urls.add(url)
                     
                 yield f"data: {json.dumps({'status': f'Fetching JD from {source}...'})}\n\n"
-                jd_text = await asyncio.to_thread(fetch_jd, url)
-                if not jd_text or len(jd_text) < 100:
-                    continue
                 
-                # Strip navigation noise before LLM
-                jd_clean = strip_jd_noise(jd_text)
+                # Step 2: Fetch and Clean
+                jd_clean = await fetch_and_clean_jd(url)
+                if not jd_clean:
+                    continue
                     
-                # Evaluate using Llama (Groq) — only title + years of exp
-                eval_res = extract_job_team_info(jd_clean, profile)
+                # Validate using Agent 3 (Qwen)
+                eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile)
                 
                 if eval_res.get("isValidRange") is True:
-                    # Extract company name from URL slug heuristics
+                    # Step 3: Extract Company Name
                     company_name = extract_company_name(url, source)
-                    
-                    # Clean up suffixes
-                    company_name = company_name.split(" Careers")[0].split(" Jobs")[0].strip()
-                    if not company_name or company_name == "Unknown":
-                        company_name = source
-                        
                     team_name = eval_res.get("teamName")
                     
                     job_data = {
@@ -258,32 +294,13 @@ async def discover_jobs(req: DiscoverRequest):
                         "pocProfiles": []
                     }
                     
-                    # Improved POC Discovery using MetadataParser (Agent 5)
                     yield f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n"
                     
-                    # Discover company domain once per job
-                    cached_domain = serper_client.find_company_domain(company_name)
-                    poc_search_res = serper_client.search_linkedin_pocs(company_name, team_name, job_title)
-                    extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res, company_name, job_title)
-                    poc_profiles = extracted_pocs.get("profiles", [])[:2]
+                    # Step 4: Find POCs
+                    pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name, job_title)
                     
-                    for poc in poc_profiles:
-                        name = poc.get("name", "")
-                        first_name = ""
-                        last_name = ""
-                        if " " in name:
-                            parts = name.split(" ")
-                            first_name = parts[0]
-                            last_name = " ".join(parts[1:])
-                        
-                        email = hunter_client.find_email(first_name, last_name, cached_domain)
-                            
-                        job_data["pocProfiles"].append({
-                            "name": name,
-                            "currentRole": poc.get("current_role"),
-                            "linkedinUrl": poc.get("linkedin_url"),
-                            "email": email
-                        })
+                    # Step 5: Enrich with Emails
+                    job_data["pocProfiles"] = await asyncio.to_thread(enrich_with_emails, pocs, company_name)
                         
                     jobs_found += 1
                     yield f"data: {json.dumps(job_data)}\n\n"
