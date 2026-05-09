@@ -9,7 +9,7 @@ class MetadataParser:
         self.model = "llama-3.3-70b-versatile"
         self.url = "https://api.groq.com/openai/v1/chat/completions"
 
-    def parse_poc_snippets(self, search_results):
+    def parse_poc_snippets(self, search_results, target_company_name: str, target_role_type: str):
         """Extract exactly two profiles per job from Serper search snippets."""
         if is_over_limit("groq"):
             raise Exception("Groq API limit reached (60% threshold). Process paused.")
@@ -22,31 +22,38 @@ class MetadataParser:
                 "snippet": res.get("snippet")
             })
 
-        prompt = f"""
-You are a high-precision data extraction agent. Analyze the following Google Search results metadata from LinkedIn and extract exactly TWO relevant profiles.
+        prompt = f"""## System Persona
+You are a High-Precision Entity Resolution Agent specializing in LinkedIn metadata. Your goal is to identify current employees (Peers) at a target company while strictly filtering out "Ex-employees" and "Name-Company collisions."
 
-Extraction Task:
-1. Identify the person's name from the result title (e.g., "Vidushi Saxena").
-2. Extract the direct LinkedIn profile URL (/in/ link).
-3. Identify their current role and company from the snippet (e.g., "Senior Product Manager | Bharti Airtel").
-4. STRICT FILTER: Do NOT include profiles that indicate the person has left the company. Look for keywords like "Ex-", "Former", "Previous", "Past", or "At [Other Company]" in the title or snippet. If a profile says "Ex-Airbnb", it must be REJECTED if the target company is Airbnb.
+## Context
+- **Target Company:** {target_company_name}
+- **Target Role Type:** {target_role_type}
+- **Input Data:** {json.dumps(snippets[:10], indent=2)}
 
-Input Metadata (JSON):
-{json.dumps(snippets[:10], indent=2)}
+## Extraction Logic & Hard Gates
+1. **Entity Collision Check:** Does the snippet indicate "{target_company_name}" as the **Employer**, or is it just part of a name/other phrase? (e.g., "Fam Smith" vs "Product at Fam"). If it's not the Employer, REJECT.
+2. **Current Employment Verification:** - Search for "Ex-", "Former", "Past", "Worked at". If these prefixes are attached to the target company, REJECT.
+   - Look for separators like "|" or "-" in titles. The company following the role MUST match the target company.
+3. **Peer Match:** Prioritize profiles where the role contains keywords related to "{target_role_type}".
 
-Output Requirements:
-- Return exactly TWO profiles in the following JSON format.
-- If fewer than two are relevant and CURRENTLY at the company, return as many as possible (but max 2).
-- Be extremely accurate with name and role mapping.
-- Only include people who are currently employed at the target company.
+## Self-Critique Loop (Internal Monologue)
+Before finalizing the JSON, ask yourself:
+- "Is 'Vidushi Saxena' actually at '{target_company_name}', or does the snippet just mention her past experience there?"
+- "Did I pick this person because their name contains the company string? (e.g., 'Fam' in name vs company)."
+- "Is the LinkedIn URL a direct profile link (/in/) and not a company page?"
 
-Output Schema:
+return 2 profiles per job.
+
+## Output Contract (JSON ONLY)
 {{
   "profiles": [
     {{
       "name": "string",
-      "linkedinUrl": "string",
-      "currentRole": "string"
+      "linkedin_url": "string",
+      "current_role": "string",
+      "current_company": "string",
+      "is_current_employee": true,
+      "confidence_score": number
     }}
   ]
 }}

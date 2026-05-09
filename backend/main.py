@@ -505,7 +505,7 @@ async def search_and_match(req: DiscoverRequest):
         poc_search_res = serper_client.search_linkedin_pocs(company_name, team_name, job_title)
         
         # 5. Extract POC Metadata (Limit 2)
-        extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res)
+        extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res, company_name, job_title)
         poc_profiles = extracted_pocs.get("profiles", [])[:2]
         
         # 6. Hunter.io Email Lookup
@@ -524,8 +524,8 @@ async def search_and_match(req: DiscoverRequest):
             
             final_pocs.append({
                 "name": name,
-                "title": poc.get("currentRole"),
-                "linkedinUrl": poc.get("linkedinUrl"),
+                "title": poc.get("current_role"),
+                "linkedinUrl": poc.get("linkedin_url"),
                 "email": email
             })
             
