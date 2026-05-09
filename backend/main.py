@@ -9,13 +9,10 @@ import asyncio
 from pypdf import PdfReader
 from io import BytesIO
 from config import (
-    GEMINI_API_KEY, 
     SERPER_API_KEY, 
     HUNTER_API_KEY, 
     GROQ_API_KEY, 
-    FIRECRAWL_API_KEY,
-    DEEPSEEK_API_KEY,
-    QWEN_API_KEY
+    FIRECRAWL_API_KEY
 )
 from firecrawl import V1FirecrawlApp
 from evals import get_country
