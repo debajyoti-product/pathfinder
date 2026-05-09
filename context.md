@@ -79,6 +79,13 @@ Config loaded via: `backend/config.py` → `python-dotenv` → `os.getenv()`
 | `agents/metadata_parser.py` | Agent 5: High-Precision POC Entity Resolution | Llama 3.3 70B (Groq) |
 | `agents/email_drafter.py` | Agent 6: Tactical Career Coach + Self-Critique Loop | Llama 3.1 8B (Groq) |
 
+### Tests (`backend/tests/`)
+| File | Purpose |
+|------|---------|
+| `tests/test_agents.py` | LLM parsing and agent logic validation |
+| `tests/test_services.py` | External API connectivity and model discovery |
+| `tests/test_pipeline.py` | Serper discovery, Firecrawl scraping, and endpoint integration |
+
 ### Vercel Deployment (`api/`)
 | File | Purpose |
 |------|---------|
@@ -256,3 +263,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | **Silent Bug Sweep:** `jd_validator.py` now checks for `"error"` key in Qwen response and logs it. |
 | 2026-05-09 | **Silent Bug Sweep:** `usage_tracker.py` — fixed relative USAGE_FILE path (broke on Vercel), removed hardcoded ALERTS_FILE, added crash-safe JSON reads/writes. |
 | 2026-05-09 | **Refactor:** Unified all LLM caller logic into `_call_llm_json` in `evals.py` with integrated usage tracking and error handling. |
+| 2026-05-09 | **Refactor:** Consolidated 7 loose test files into a structured `backend/tests/` directory (`test_agents.py`, `test_services.py`, `test_pipeline.py`). |
