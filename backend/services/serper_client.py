@@ -23,6 +23,13 @@ class SerperClient:
             log_usage("serper")
             return response.json()
 
+    def search(self, query, search_type="search", tbs=None):
+        """General purpose search method."""
+        payload = {"q": query}
+        if tbs:
+            payload["tbs"] = tbs
+        return self._call_api(search_type, payload)
+
     def search_jobs(self, query):
         """Find relevant job board links."""
         payload = {"q": query}

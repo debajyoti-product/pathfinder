@@ -63,24 +63,6 @@ class ProfileData(BaseModel):
     location: Optional[str] = None
     remote_only: Optional[bool] = False
 
-def call_serper(query: str, search_type: str = "search", tbs: Optional[str] = None) -> dict:
-    url = f"https://google.serper.dev/{search_type}"
-    payload = {"q": query}
-    if tbs:
-        payload["tbs"] = tbs # E.g., for last 6 months news: "qdr:m6"
-    
-    headers = {
-        'X-API-KEY': SERPER_API_KEY,
-        'Content-Type': 'application/json'
-    }
-    try:
-        with httpx.Client() as client:
-            response = client.post(url, headers=headers, json=payload, timeout=30)
-            response.raise_for_status()
-            return response.json()
-    except Exception as e:
-        print(f"Serper API Error: {e}")
-        return {}
 
 def fetch_jina(url: str) -> str:
     """Fetch job description using Jina Reader — works for all sites including LinkedIn."""
@@ -162,7 +144,7 @@ async def discover_jobs(req: DiscoverRequest):
             yield f"data: {json.dumps({'status': 'Searching LinkedIn jobs...'})}\n\n"
             try:
                 li_query = f'site:linkedin.com/jobs/view "{job_title}" "{location}"'
-                li_serper = await asyncio.to_thread(call_serper, li_query)
+                li_serper = await asyncio.to_thread(serper_client.search, li_query)
                 li_results = li_serper.get("organic", [])
                 print(f"LinkedIn Results: {len(li_results)}")
                 for item in li_results[:10]:
@@ -176,7 +158,7 @@ async def discover_jobs(req: DiscoverRequest):
             yield f"data: {json.dumps({'status': 'Searching Naukri jobs...'})}\n\n"
             try:
                 nk_query = f'site:naukri.com "{job_title}" "{location}"'
-                nk_serper = await asyncio.to_thread(call_serper, nk_query)
+                nk_serper = await asyncio.to_thread(serper_client.search, nk_query)
                 nk_results = nk_serper.get("organic", [])
                 print(f"Naukri Results: {len(nk_results)}")
                 for item in nk_results[:10]:
@@ -191,7 +173,7 @@ async def discover_jobs(req: DiscoverRequest):
             yield f"data: {json.dumps({'status': 'Searching job boards...'})}\n\n"
             try:
                 board_query = f'"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)'
-                board_serper = await asyncio.to_thread(call_serper, board_query)
+                board_serper = await asyncio.to_thread(serper_client.search, board_query)
                 board_results = board_serper.get("organic", [])
                 print(f"Board Results: {len(board_results)}")
                 for item in board_results[:10]:
@@ -278,7 +260,7 @@ async def discover_jobs(req: DiscoverRequest):
                     
                     profile_organic = []
                     for q in search_queries:
-                        res = call_serper(q)
+                        res = serper_client.search(q)
                         profile_organic.extend(res.get("organic", []))
                     
                     profiles_added = 0
@@ -348,7 +330,7 @@ class ReferralRequest(BaseModel):
 @app.post("/api/discover-referrals")
 async def discover_referrals(req: ReferralRequest):
     query = f'site:linkedin.com/in/ "{req.company}" ("Recruiter" OR "Lead" OR "Manager")'
-    serper_res = call_serper(query)
+    serper_res = serper_client.search(query)
     organic = serper_res.get("organic", [])
     
     referrers = []
@@ -459,7 +441,7 @@ async def search_and_match(req: DiscoverRequest):
 async def draft_email(req: DraftRequest):
     # News from last 6 months
     news_query = f'{req.company} news'
-    serper_res = call_serper(news_query, search_type="news", tbs="qdr:m6")
+    serper_res = serper_client.search(news_query, search_type="news", tbs="qdr:m6")
     news_items = serper_res.get("news", [])
 
     news_snippet = "\n".join([n.get("title", "") for n in news_items[:3]])

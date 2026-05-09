@@ -264,3 +264,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | **Silent Bug Sweep:** `usage_tracker.py` — fixed relative USAGE_FILE path (broke on Vercel), removed hardcoded ALERTS_FILE, added crash-safe JSON reads/writes. |
 | 2026-05-09 | **Refactor:** Unified all LLM caller logic into `_call_llm_json` in `evals.py` with integrated usage tracking and error handling. |
 | 2026-05-09 | **Refactor:** Consolidated 7 loose test files into a structured `backend/tests/` directory (`test_agents.py`, `test_services.py`, `test_pipeline.py`). |
+| 2026-05-09 | **Refactor:** Unified all Serper API calls into `SerperClient.search()` and removed the redundant `call_serper()` from `main.py`. |
