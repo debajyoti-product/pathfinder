@@ -65,7 +65,7 @@ Config loaded via: `backend/config.py` → `python-dotenv` → `os.getenv()`
 | File | Purpose |
 |------|---------|
 | `backend/main.py` | FastAPI app. Endpoints: `/api/parse-resume`, `/api/discover-jobs` (SSE), `/api/discover-referrals`, `/api/v1/search-and-match`, `/api/draft-email` |
-| `backend/evals.py` | LLM utility functions: `_call_gemini_json()` (actually calls Groq/Llama), `evaluate_job_match()`, `extract_job_team_info()`, `evaluate_email_draft()`, `get_country()` |
+| `backend/evals.py` | LLM utility functions: `_call_gemini_json()` (actually calls Groq/Llama), `_call_qwen_json()` (calls Groq/Qwen), `evaluate_job_match()`, `extract_job_team_info()`, `get_country()` |
 | `backend/config.py` | Loads all env vars from `.env` |
 | `backend/services/serper_client.py` | Serper API wrapper class |
 | `backend/services/hunter_client.py` | Hunter.io API wrapper class |
@@ -123,8 +123,8 @@ Profile → Serper search (3 sources) → URL collection → JD scraping → LLM
 
 ### Step 3: Drafting (`POST /api/draft-email`)
 ```
-Company + Profile → Serper news search (last 6 months) → Groq/Llama email generation → Quality evaluation → Auto-retry if no intent line
-Output: { email: "drafted text", news: [...] }
+Company + Profile → Serper news search (last 6 months) → Groq/Llama email generation (with Self-Critique Gate) → Auto-retry if no intent line
+Output: { email: "drafted text", news: [...], critique_notes: "..." }
 ```
 
 ---
@@ -238,3 +238,6 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | Upgraded Metadata Parser to High-Precision Entity Resolution Agent (filters Ex-employees and Name-Company collisions). |
 | 2026-05-09 | Refactored Job Validation to "Cynical Gatekeeper" persona with 3 strict hardware gates (Geo, Seniority, Remote). |
 | 2026-05-09 | Switched JD validation agent to Qwen 3 32B via Groq and added `QWEN_API_KEY` mapping. |
+| 2026-05-09 | Fixed Python date parser fallback bugs using `dateutil.parser` for perfectly accurate LLM date math overrides. |
+| 2026-05-09 | Upgraded Email Drafting Agent to Tactical Career Coach persona with an integrated self-critique loop. |
+| 2026-05-09 | Removed the standalone critique agent (`evaluate_email_draft`) to halve API latency and tokens. |
