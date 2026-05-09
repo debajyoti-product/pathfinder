@@ -166,6 +166,51 @@ Resume:
     result = _call_gemini_json(prompt)
     if "error" in result:
         raise HTTPException(status_code=500, detail=f"LLM Error: {result['error']}")
+        
+    # Python Date Math Override
+    import datetime
+    from dateutil.relativedelta import relativedelta
+    
+    def parse_date(d_str):
+        if not d_str or str(d_str).lower() in ["present", "current", "now", "null"]:
+            return datetime.datetime.now()
+        try:
+            parts = str(d_str).split("/")
+            if len(parts) == 2:
+                return datetime.datetime(int(parts[1][-4:]), int(parts[0]), 1)
+            elif len(parts) == 1:
+                return datetime.datetime(int(parts[0][-4:]), 1, 1)
+        except:
+            pass
+        return datetime.datetime.now()
+
+    summary_map = {}
+    for role in result.get("roles", []):
+        start = parse_date(role.get("start_date"))
+        end = parse_date(role.get("end_date"))
+        diff = relativedelta(end, start)
+        years = diff.years + (diff.months / 12.0)
+        if years < 0: years = 0.0
+        
+        # Round up single month to avoid 0.0 if they just started
+        if years == 0 and (end.month != start.month or end.year != start.year):
+            years = 1/12.0
+            
+        title = role.get("title", "Unknown Role")
+        if title in summary_map:
+            summary_map[title] += years
+        else:
+            summary_map[title] = years
+
+    new_summary = []
+    for title, y in summary_map.items():
+        new_summary.append({
+            "role_type": title,
+            "total_years_numeric": round(y, 2),
+            "experience_range": "0-1 years" # Frontend recalculates exact bucket
+        })
+        
+    result["experience_summary"] = new_summary
 
     return result
 
