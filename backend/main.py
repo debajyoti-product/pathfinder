@@ -263,6 +263,9 @@ async def discover_jobs(req: DiscoverRequest):
                         res = serper_client.search(q)
                         profile_organic.extend(res.get("organic", []))
                     
+                    # Discover company domain once per job
+                    cached_domain = serper_client.find_company_domain(company_name)
+                    
                     profiles_added = 0
                     seen_poc_links = set()
                     
@@ -294,15 +297,7 @@ async def discover_jobs(req: DiscoverRequest):
                         if name and " " in name:
                             first_name, *last_names = name.split(" ")
                             last_name = " ".join(last_names)
-                            domain = company_name.replace(" ", "").lower() + ".com"
-                            
-                            hunter_url = f"https://api.hunter.io/v2/email-finder?domain={domain}&first_name={first_name}&last_name={last_name}&api_key={HUNTER_API_KEY}"
-                            try:
-                                with httpx.Client() as client:
-                                    h_res = client.get(hunter_url, timeout=10)
-                                    if h_res.status_code == 200:
-                                        email = h_res.json().get("data", {}).get("email")
-                            except: pass
+                            email = hunter_client.find_email(first_name, last_name, cached_domain)
                                 
                         job_data["pocProfiles"].append({
                             "name": name,

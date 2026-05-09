@@ -265,3 +265,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | **Refactor:** Unified all LLM caller logic into `_call_llm_json` in `evals.py` with integrated usage tracking and error handling. |
 | 2026-05-09 | **Refactor:** Consolidated 7 loose test files into a structured `backend/tests/` directory (`test_agents.py`, `test_services.py`, `test_pipeline.py`). |
 | 2026-05-09 | **Refactor:** Unified all Serper API calls into `SerperClient.search()` and removed the redundant `call_serper()` from `main.py`. |
+| 2026-05-09 | **Refactor:** Consolidated raw Hunter.io API calls into `HunterClient.find_email()` in `main.py` and optimized domain discovery to use `SerperClient.find_company_domain()`. |
