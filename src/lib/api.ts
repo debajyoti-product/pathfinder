@@ -28,10 +28,10 @@ export async function parseResume(file: File): Promise<ProfileData> {
 
   const data = await res.json();
   
-  // Map roles from backend
-  const parsedRoles = (data.roles || []).map((r: any) => ({
-    title: r.title,
-    yearsExp: r.years_exp,
+  // Map roles from backend experience_summary
+  const parsedRoles = (data.experience_summary || []).map((summary: any) => ({
+    title: summary.role_type,
+    yearsExp: typeof summary.total_years_numeric === 'number' ? Number(summary.total_years_numeric.toFixed(2)) : 0,
     active: true
   }));
 
