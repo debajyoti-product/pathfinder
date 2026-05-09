@@ -64,7 +64,7 @@ Config loaded via: `backend/config.py` → `python-dotenv` → `os.getenv()`
 ### Backend (`backend/`)
 | File | Purpose |
 |------|---------|
-| `backend/main.py` | FastAPI app. Endpoints: `/api/parse-resume`, `/api/discover-jobs` (SSE), `/api/discover-referrals`, `/api/v1/search-and-match`, `/api/draft-email` |
+| `backend/main.py` | FastAPI app. Endpoints: `/api/parse-resume`, `/api/discover-jobs` (SSE), `/api/discover-referrals`, `/api/draft-email` |
 | `backend/evals.py` | Shared LLM callers: `_call_llama_json()`, `_call_qwen_json()`, `evaluate_job_match()`, `get_country()` |
 | `backend/config.py` | Loads all env vars from `.env` |
 | `backend/services/serper_client.py` | Serper API wrapper class |
@@ -267,3 +267,4 @@ Vite proxy config in `vite.config.ts` forwards `/api` requests to `http://localh
 | 2026-05-09 | **Refactor:** Unified all Serper API calls into `SerperClient.search()` and removed the redundant `call_serper()` from `main.py`. |
 | 2026-05-09 | **Refactor:** Consolidated raw Hunter.io API calls into `HunterClient.find_email()` in `main.py` and optimized domain discovery to use `SerperClient.find_company_domain()`. |
 | 2026-05-09 | **Refactor:** Created `extract_company_name()` utility in `main.py` to DRY company extraction logic from Greenhouse, Lever, LinkedIn, and Workday URLs. |
+| 2026-05-09 | **Refactor:** Unified discovery logic into the streaming `/api/discover-jobs` endpoint, integrating `MetadataParser` (Agent 5) and removing the redundant `/api/v1/search-and-match` endpoint. |

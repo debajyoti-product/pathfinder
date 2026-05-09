@@ -261,63 +261,32 @@ async def discover_jobs(req: DiscoverRequest):
                         "pocProfiles": []
                     }
                     
-                    # Improved POC Discovery
+                    # Improved POC Discovery using MetadataParser (Agent 5)
                     yield f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n"
-                    search_queries = []
-                    if team_name:
-                        search_queries.append(f'"{company_name}" "{team_name}" (Lead OR Manager OR Director OR Head) linkedin')
-                    
-                    search_queries.append(f'"{company_name}" "{job_title}" (Lead OR Manager OR Director OR Head) linkedin')
-                    search_queries.append(f'"{company_name}" ("Technical Recruiter" OR "Talent Acquisition" OR "Talent Lead") linkedin')
-                    
-                    profile_organic = []
-                    for q in search_queries:
-                        res = serper_client.search(q)
-                        profile_organic.extend(res.get("organic", []))
                     
                     # Discover company domain once per job
                     cached_domain = serper_client.find_company_domain(company_name)
+                    poc_search_res = serper_client.search_linkedin_pocs(company_name, team_name, job_title)
+                    extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res, company_name, job_title)
+                    poc_profiles = extracted_pocs.get("profiles", [])[:2]
                     
-                    profiles_added = 0
-                    seen_poc_links = set()
-                    
-                    for p in profile_organic:
-                        if profiles_added >= 2:
-                            break
+                    for poc in poc_profiles:
+                        name = poc.get("name", "")
+                        first_name = ""
+                        last_name = ""
+                        if " " in name:
+                            parts = name.split(" ")
+                            first_name = parts[0]
+                            last_name = " ".join(parts[1:])
                         
-                        link = p.get("link", "")
-                        if "linkedin.com/in/" not in link or link in seen_poc_links:
-                            continue
-                        
-                        seen_poc_links.add(link)
+                        email = hunter_client.find_email(first_name, last_name, cached_domain)
                             
-                        title = p.get("title", "")
-                        if " - " in title:
-                            name = title.split(" - ")[0].strip()
-                            current_role = title.split(" - ")[1].split("|")[0].strip()
-                        else:
-                            name = title.strip()
-                            current_role = "Unknown"
-                            
-                        # Filter out profiles where the user name contains the company name
-                        # This happens when Serper finds a generic company page instead of a real person
-                        if company_name.lower() in name.lower() or "hiring" in name.lower() or "jobs" in name.lower():
-                            continue
-                            
-                        # Fetch email
-                        email = None
-                        if name and " " in name:
-                            first_name, *last_names = name.split(" ")
-                            last_name = " ".join(last_names)
-                            email = hunter_client.find_email(first_name, last_name, cached_domain)
-                                
                         job_data["pocProfiles"].append({
                             "name": name,
-                            "currentRole": current_role,
-                            "linkedinUrl": link,
+                            "currentRole": poc.get("current_role"),
+                            "linkedinUrl": poc.get("linkedin_url"),
                             "email": email
                         })
-                        profiles_added += 1
                         
                     jobs_found += 1
                     yield f"data: {json.dumps(job_data)}\n\n"
@@ -356,89 +325,6 @@ class DraftRequest(BaseModel):
     company: str
     poc_name: Optional[str] = None
 
-@app.post("/api/v1/search-and-match")
-async def search_and_match(req: DiscoverRequest):
-    profile = req.profile.dict()
-    job_title = profile.get("job_title", "Engineer")
-    skills = profile.get("skills", [])
-    exp = profile.get("actual_years_exp", 0)
-    location = profile.get("location", "")
-    
-    # Identify country for broader search
-    country = get_country(location)
-    location_str = f"in {country}" if country else ""
-    
-    # 1. Search for jobs
-    query = f'"{job_title}" {location_str} site:boards.greenhouse.io OR site:jobs.lever.co'
-    serper_res = serper_client.search_jobs(query)
-    organic_jobs = serper_res.get("organic", [])
-    
-    results = []
-    jobs_processed = 0
-    
-    for job in organic_jobs:
-        if jobs_processed >= 2:
-            break
-            
-        job_url = job.get("link")
-        if not job_url:
-            continue
-            
-        # 2. Extract JD and Validate
-        jd_text = fetch_jina(job_url)
-        if not jd_text or len(jd_text) < 100:
-            continue
-            
-        validation = extract_job_team_info(jd_text, profile)
-        if not validation.get("isValidRange"):
-            continue
-            
-        # Determine Company Name
-        company_name = extract_company_name(job_url)
-        
-        team_name = validation.get("teamName")
-        
-        # 3. Find Company Domain for Hunter.io
-        domain = serper_client.find_company_domain(company_name)
-        
-        # 4. Search for LinkedIn POCs
-        poc_search_res = serper_client.search_linkedin_pocs(company_name, team_name, job_title)
-        
-        # 5. Extract POC Metadata (Limit 2)
-        extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res, company_name, job_title)
-        poc_profiles = extracted_pocs.get("profiles", [])[:2]
-        
-        # 6. Hunter.io Email Lookup
-        final_pocs = []
-        for poc in poc_profiles:
-            name = poc.get("name", "")
-            first_name = ""
-            last_name = ""
-            if " " in name:
-                parts = name.split(" ")
-                first_name = parts[0]
-                last_name = " ".join(parts[1:])
-            
-            # email = hunter_client.find_email(first_name, last_name, domain)
-            email = None # Temporarily bypassed for strict POC validation phase
-            
-            final_pocs.append({
-                "name": name,
-                "title": poc.get("current_role"),
-                "linkedinUrl": poc.get("linkedin_url"),
-                "email": email
-            })
-            
-        results.append({
-            "jobTitle": job_title,
-            "company": company_name,
-            "jobUrl": job_url,
-            "pocProfiles": final_pocs
-        })
-        
-        jobs_processed += 1
-        
-    return results
 
 @app.post("/api/draft-email")
 async def draft_email(req: DraftRequest):
