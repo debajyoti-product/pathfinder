@@ -21,8 +21,7 @@ def _call_gemini_json(prompt: str) -> dict:
         
         data = {
             "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"}
+            "messages": [{"role": "user", "content": prompt}]
         }
 
         for attempt in range(2): # Fail fast: Max 2 attempts
