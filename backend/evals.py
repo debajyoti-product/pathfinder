@@ -111,46 +111,46 @@ def extract_job_team_info(jd_text: str, user_profile: dict) -> dict:
     remote_only = str(user_profile.get("remote_only", False)).lower()
 
     prompt = f"""## System Persona
-You are a High-Precision Job Validation Agent. Your sole purpose is to enforce a strict qualification policy by comparing a candidate's normalized profile against scraped Job Description (JD) text. 
+You are a Cynical Recruitment Gatekeeper. Your goal is to DISQUALIFY jobs. Assume every job is a "False Positive" until it passes three high-integrity hardware gates: Geography, Seniority, and Remote-Policy.
 
 ## Input Data
-- **Candidate Range:** {exp_range} (from Agent 1)
-- **Candidate Years:** {total_years}
-- **Job Description:** {jd_text[:1500]}
+- Candidate Experience: {exp_range} ({total_years} years)
+- Remote Preference: {remote_only}
+- JD Content: {jd_text[:1500]}
 
-## Step-by-Step Logic (Chain-of-Thought)
-1. **Requirement Extraction:** Scan the JD for explicit years of experience (e.g., "5+ years", "minimum 3 years"). If not found, look for seniority signals in the title.
-2. **Policy Enforcement:**
-    - **Strict Minimum:** If JD asks for X+ years and Candidate has < (X - 1), return `isValidRange: false`.
-    - **Seniority Gate:** If title contains [Senior, Lead, Staff, Principal, Director, VP] and Candidate has < 4 years, return `isValidRange: false`.
-    - **Over-Qualified Gate:** If title contains [Intern, Trainee, Junior] and Candidate has > 5 years, return `isValidRange: false`.
-    - **Ambiguity Rule:** If no years are mentioned and no seniority keywords exist, set `isValidRange: true` with a lower `confidence`.
+## THE THREE HARD GATES (Apply strictly)
 
-## Location & Remote Policy Enforcement (CRITICAL)
-- **Geographic Gate:** The job MUST be located in "India". If the JD or URL indicates a location outside of India, set `isValidRange: false`.
-- **Remote Toggle Logic:** {remote_only} (Boolean). 
-    - If `true`: The job MUST be "Remote", "Work from Home", or "Virtual" within India. If the JD requires an in-office presence in a specific city with no remote option, set `isValidRange: false`.
-    - If `false`: Accept both on-site (India-based) and remote (India-based) roles.
-- **Confidence Adjustment:** If the location is not explicitly stated as "India" but the company is a well-known Indian entity (e.g., Zomato, Swiggy), maintain a score of 0.8. If the location is ambiguous or potentially international, drop `confidence` to 0.4.
+### GATE 1: Geographic Integrity (India Only)
+- **Metadata Check:** Look for location labels (e.g., "United States", "Philippines", "Manila"). 
+- **SEO Trap Detection:** If the title says "Jobs in India" but the metadata or company HQ is listed elsewhere without an explicit "Remote India" option, REJECT.
+- **Decision:** If the primary location is NOT India, `isValidRange: false`.
 
-## Confidence Signaling
-- **Score 1.0:** JD explicitly states years/experience range and candidate clearly meets/fails it.
-- **Score 0.7:** No years/experience range stated, but seniority keywords (e.g., "Senior") allow for a high-probability inference.
-- **Score 0.5:** JD is vague or poorly scraped; logic is based on title alone.
+### GATE 2: Seniority & Title Mapping
+- **Implicit Floor:** Titles like "Group Product Manager," "Staff," "Principal," or "Director" have a hard floor of 8+ years. 
+- **The Match Rule:** If the candidate has < 8 years and the title is "Group PM" or "Staff," REJECT immediately.
+- **Explicit Floor:** If the JD mentions "10+ years" or "12 years" and candidate is in the "1-3" or "3-5" bucket, REJECT.
+
+### GATE 3: Remote Intent (If {remote_only} is True)
+- **Strict Verification:** The JD must explicitly state "Remote," "WFH," or "Work from anywhere." 
+- **Reject SEO Spam:** Many listings use "Remote" in the title but specify a "United States" location in the metadata (as seen in the provided image). These are US-Remote, not India-Remote. REJECT if the timezones or countries do not align.
 
 ## Output Contract (JSON ONLY)
 {{
   "isValidRange": boolean,
-  "requiredExperience": "string (extracted requirement)",
-  "confidence": number (0.0 to 1.0),
-  "match_logic": "string (short 1-sentence reason for the decision)",
-  "companyName": "string (extracted from JD or URL)"
+  "reasoning_trace": {{
+    "location_gate": "Passed/Failed (Reason)",
+    "experience_gate": "Passed/Failed (Reason)",
+    "remote_gate": "Passed/Failed (Reason)"
+  }},
+  "confidence": number,
+  "detected_location": "string",
+  "required_years_extracted": "string"
 }}"""
     
     res = _call_gemini_json(prompt)
     if "isValidRange" not in res:
         res["isValidRange"] = False
-    res.setdefault("requiredExperience", "Unknown")
+    res.setdefault("required_years_extracted", "Unknown")
     res.setdefault("companyName", None)
     res.setdefault("teamName", None)
     return res

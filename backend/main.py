@@ -346,8 +346,8 @@ async def discover_jobs(req: DiscoverRequest):
                         "url": url,
                         "linkedin": url,
                         "team": team_name,
-                        "requiredExperience": eval_res.get("requiredExperience"),
-                        "reason": eval_res.get("match_logic"),
+                        "requiredExperience": eval_res.get("required_years_extracted", "Unknown"),
+                        "reason": f"Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')} | Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Remote: {eval_res.get('reasoning_trace', {}).get('remote_gate', '')}",
                         "pocProfiles": []
                     }
                     
