@@ -82,12 +82,6 @@ def _call_llama_json(prompt: str) -> dict:
 
 def _call_qwen_json(prompt: str) -> dict:
     return _call_llm_json(prompt, QWEN_MODELS, QWEN_API_KEY, json_mode=False)
-                        time.sleep(1)
-                        continue
-                    break  # Try next model
-
-    return last_error or {"error": "All models failed"}
-
 
 
 def evaluate_job_match(jd_text: str, user_profile: dict) -> dict:

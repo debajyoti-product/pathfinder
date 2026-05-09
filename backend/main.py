@@ -6,13 +6,19 @@ from typing import List, Optional
 import httpx
 import json
 import asyncio
-import urllib.parse
 from pypdf import PdfReader
 from io import BytesIO
-
-from config import GEMINI_API_KEY, SERPER_API_KEY, HUNTER_API_KEY, GROQ_API_KEY, FIRECRAWL_API_KEY
+from config import (
+    GEMINI_API_KEY, 
+    SERPER_API_KEY, 
+    HUNTER_API_KEY, 
+    GROQ_API_KEY, 
+    FIRECRAWL_API_KEY,
+    DEEPSEEK_API_KEY,
+    QWEN_API_KEY
+)
 from firecrawl import V1FirecrawlApp
-from evals import evaluate_job_match, _call_llama_json, get_country
+from evals import get_country
 from agents.resume_parser import ResumeParser
 from agents.jd_validator import extract_job_team_info
 from agents.email_drafter import EmailDrafter
@@ -133,14 +139,6 @@ async def parse_resume(file: UploadFile = File(...)):
 class DiscoverRequest(BaseModel):
     profile: ProfileData
 
-from config import (
-    GEMINI_API_KEY, 
-    DEEPSEEK_API_KEY, 
-    GROQ_API_KEY, 
-    SERPER_API_KEY, 
-    HUNTER_API_KEY,
-    FIRECRAWL_API_KEY
-)
 
 # Apify removed in favor of Firecrawl
 
@@ -335,7 +333,6 @@ async def discover_jobs(req: DiscoverRequest):
                     jobs_found += 1
                     yield f"data: {json.dumps(job_data)}\n\n"
 
-            yield "event: close\ndata: {}\n\n"
         except Exception as e:
             print(f"Generator Error: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
