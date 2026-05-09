@@ -199,27 +199,6 @@ You are a Cynical Recruitment Gatekeeper. Your goal is to DISQUALIFY jobs. Assum
     return res
 
 
-def evaluate_email_draft(news_snippet: str, drafted_email: str) -> dict:
-    prompt = f"""
-You are an expert Critic. Evaluate whether the drafted email effectively uses the company news snippet.
-Rule: It must contain a specific Intent line that mentions the news naturally.
-
-News Snippet:
-{news_snippet}
-
-Drafted Email:
-{drafted_email}
-
-Return strictly a JSON object:
-{{
-  "has_intent_line": boolean,
-  "reason": "Short explanation"
-}}
-    """
-    res = _call_gemini_json(prompt)
-    if "has_intent_line" not in res:
-        res["has_intent_line"] = False
-    return res
 
 def get_country(location: str) -> str:
     if not location:

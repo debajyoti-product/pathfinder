@@ -12,7 +12,7 @@ from io import BytesIO
 
 from config import GEMINI_API_KEY, SERPER_API_KEY, HUNTER_API_KEY, GROQ_API_KEY, FIRECRAWL_API_KEY
 from firecrawl import V1FirecrawlApp
-from evals import evaluate_job_match, evaluate_email_draft, _call_gemini_json, extract_job_team_info, get_country
+from evals import evaluate_job_match, _call_gemini_json, extract_job_team_info, get_country
 
 from services.serper_client import SerperClient
 from agents.metadata_parser import MetadataParser
@@ -554,30 +554,49 @@ async def draft_email(req: DraftRequest):
     
     profile_summary = f"{req.profile.job_title} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
     
-    poc_context = f"- Hiring Contact: {req.poc_name}" if req.poc_name else ""
+    poc_name = req.poc_name or 'Hiring Team'
+    poc_role = 'Hiring Team'
+    job_url = 'Unknown URL'
     
-    prompt = f"""
-You are an Expert Career Coach. Write a high-conversion cold email.
-Inputs:
-- User Resume Summary: {profile_summary}
-- Job Title: {req.job_title}
-- Company: {req.company}
-{poc_context}
-- Company News/Product Snippet: {news_snippet}
-Tone: Professional, brief, and high-signal. No fluff.
-Possible structure: greeting (Address the Hiring Contact if available), hook (specific job with url & 1-2 core skills), body (connect user experience to company news wherever applicable), ask for referral.
-Max 150 words.
-Return JSON with key 'email': 'drafted text'
-    """
+    prompt = f"""## System Persona
+You are a Tactical Career Coach and Cold Email Strategist. Your goal is to produce a high-signal, 100-word "Peer-to-Peer" cold email that connects a candidate's background to a specific company mission.
+
+## Input Context
+- **Candidate:** {profile_summary}
+- **Target:** {req.job_title} at {req.company} (URL: {job_url})
+- **Contact:** {poc_name} ({poc_role})
+- **Signal:** {news_snippet}
+
+## Step 1: Strategic Planning (Internal Monologue)
+- **Identify the Hook:** How does the {{news_snippet}} create a problem that the Candidate's skills can solve?
+- **Referral Context:** Mention that you are reaching out to them specifically as a {{poc_role}} within the team.
+
+## Step 2: The "No-Fluff" Drafting Constraints
+1. **Banned Openers:** DO NOT use "I hope this finds you well," "I am writing to," or "My name is".
+2. **The Intent Line:** You MUST integrate the {{news_snippet}} as a reason for your timing (e.g., "Given your recent move into [News], I thought my experience in [Skill] would be relevant for the [Job] role.").
+3. **Brevity:** Maximum 100 words. Every sentence must add value.
+
+## Step 3: Mandatory Self-Critique Gate
+Evaluate your draft against these checkboxes:
+- [ ] Does it start with a filler sentence? (If yes, delete it).
+- [ ] Is the {{news_snippet}} mentioned naturally or does it feel forced?
+- [ ] Is there a clear, low-friction call to action?
+- [ ] Is the tone "Peer-to-Peer" rather than "Applicant-to-Authority"?
+
+## Output Contract (JSON ONLY)
+{{
+  "subject": "string",
+  "body": "string",
+  "critique_notes": "Internal notes on why this version passed the quality gate",
+  "has_intent_line": true
+}}"""
     
     result = _call_gemini_json(prompt)
-    email_text = result.get("email", "")
+    email_text = result.get("body", result.get("email", ""))
     
-    # Eval
-    eval_res = evaluate_email_draft(news_snippet, email_text)
-    if not eval_res.get("has_intent_line", False):
-        # Retry once
+    # Eval retry fallback (just in case they ignored the mandatory line)
+    if not result.get("has_intent_line", False):
         result = _call_gemini_json(prompt + "\nCRITICAL: Ensure you include a specific Intent line that mentions the news naturally.")
-        email_text = result.get("email", "")
+        email_text = result.get("body", result.get("email", ""))
         
     return {"email": email_text, "news": news_items[:3]}
