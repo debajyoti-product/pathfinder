@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Body, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -10,25 +10,20 @@ from pypdf import PdfReader
 from io import BytesIO
 from config import (
     SERPER_API_KEY, 
-    HUNTER_API_KEY, 
-    GROQ_API_KEY, 
     FIRECRAWL_API_KEY
 )
 from firecrawl import V1FirecrawlApp
-from evals import get_country
 from agents.resume_parser import ResumeParser
 from agents.jd_validator import extract_job_team_info
 from agents.email_drafter import EmailDrafter
 
 from services.serper_client import SerperClient
 from agents.metadata_parser import MetadataParser
-from services.hunter_client import HunterClient
 
 serper_client = SerperClient()
 resume_parser = ResumeParser()
 metadata_parser = MetadataParser()
 email_drafter = EmailDrafter()
-hunter_client = HunterClient()
 firecrawl_app = V1FirecrawlApp(api_key=FIRECRAWL_API_KEY) if FIRECRAWL_API_KEY else None
 
 app = FastAPI()
@@ -61,7 +56,7 @@ class ProfileData(BaseModel):
     remote_only: Optional[bool] = False
 
 def extract_company_name(url: str, source: Optional[str] = None) -> str:
-    """Heuristic to extract company name from job board URLs."""
+    """Heuristic fallback to extract company name from job board URLs."""
     company_name = "Unknown"
     try:
         if "greenhouse.io/" in url:
@@ -71,7 +66,6 @@ def extract_company_name(url: str, source: Optional[str] = None) -> str:
         elif "ashbyhq.com/" in url:
             company_name = url.split("ashbyhq.com/")[1].split("/")[0].replace("-", " ").title()
         elif "myworkdayjobs.com" in url:
-            # e.g. autodesk.wd1.myworkdayjobs.com -> Autodesk
             company_name = url.split(".")[0].replace("https://", "").replace("http://", "").title()
         elif "smartrecruiters.com/" in url:
             company_name = url.split("smartrecruiters.com/")[1].split("/")[0].replace("-", " ").title()
@@ -103,10 +97,10 @@ def fetch_jina(url: str) -> str:
         return ""
 
 def strip_jd_noise(text: str) -> str:
-    """Take only the first meaningful portion of a Jina dump to remove nav/sidebar noise."""
-    # Jina dumps often have a clean header block, then navigation links. 
-    # Grab the first 2500 chars which almost always contains title + requirements.
-    return text[:2500]
+    """Take a meaningful portion of scraped JD to remove nav/sidebar noise."""
+    # Increased from 2500 to 4000 to capture experience requirements 
+    # that often appear after company description and role overview
+    return text[:4000]
 
 def fetch_jd(url: str) -> str:
     """Fetch job description via Firecrawl (primary) or Jina Reader (fallback)."""
@@ -210,37 +204,27 @@ async def fetch_and_clean_jd(url: str) -> str:
         return ""
     return strip_jd_noise(jd_text)
 
-def find_poc_profiles(company_name: str, team_name: str, job_title: str) -> list:
-    """Step 4: Find POC profiles via Serper and Agent 5 (MetadataParser)."""
-    poc_search_res = serper_client.search_linkedin_pocs(company_name, team_name, job_title)
-    extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res, company_name, job_title)
+def find_poc_profiles(company_name: str, team_name: str) -> list:
+    """Step 4: Find POC profiles via Serper and Agent 5 (MetadataParser).
+    
+    Searches for current employees at the company in the relevant team/department.
+    Does NOT include the job title to avoid filtering out hiring managers.
+    """
+    poc_search_res = serper_client.search_linkedin_pocs(company_name, team_name)
+    extracted_pocs = metadata_parser.parse_poc_snippets(poc_search_res, company_name, team_name or "")
     return extracted_pocs.get("profiles", [])[:2]
 
-def enrich_with_emails(poc_profiles: list, company_name: str) -> list:
-    """Step 5: Enrich POC profiles with email addresses from Hunter.io."""
-    cached_domain = serper_client.find_company_domain(company_name)
-    enriched = []
-    
-    for poc in poc_profiles:
-        name = poc.get("name", "")
-        first_name, last_name = "", ""
-        if " " in name:
-            parts = name.split(" ")
-            first_name = parts[0]
-            last_name = " ".join(parts[1:])
-        
-        email = hunter_client.find_email(first_name, last_name, cached_domain) if cached_domain else None
-            
-        enriched.append({
-            "name": name,
+def build_poc_list(poc_profiles: list) -> list:
+    """Assemble POC profiles for the SSE payload (no email enrichment)."""
+    return [
+        {
+            "name": poc.get("name", "Unknown"),
             "currentRole": poc.get("current_role"),
             "linkedinUrl": poc.get("linkedin_url"),
-            "email": email
-        })
-    return enriched
+        }
+        for poc in poc_profiles
+    ]
 
-
-# Apify removed in favor of Firecrawl
 
 @app.post("/api/discover-jobs")
 async def discover_jobs(req: DiscoverRequest):
@@ -257,30 +241,30 @@ async def discover_jobs(req: DiscoverRequest):
             
             yield f"data: {json.dumps({'status': 'Searching job boards concurrently...'})}\n\n"
             
-            # Step 1: Collect
+            # Step 1: Collect URLs from LinkedIn, Naukri, and job boards
             urls = await collect_job_urls(job_title, location)
             print(f"Total Unique URLs found: {len(urls)}")
             
             jobs_found = 0
             
             for url, source in urls:
-                if jobs_found >= 10: # Cap at 10 results
+                if jobs_found >= 10:  # Cap at 10 results
                     break
                     
                 yield f"data: {json.dumps({'status': f'Fetching JD from {source}...'})}\n\n"
                 
-                # Step 2: Fetch and Clean
+                # Step 2: Fetch and clean the JD text
                 jd_clean = await fetch_and_clean_jd(url)
                 if not jd_clean:
                     continue
                     
-                # Validate using Agent 3 (Qwen)
+                # Step 3: Validate using Agent 3 (Qwen) — experience gate is highest priority
                 eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile)
                 
                 if eval_res.get("isValidRange") is True:
-                    # Step 3: Extract Company Name
-                    company_name = extract_company_name(url, source)
-                    team_name = eval_res.get("teamName")
+                    # Use LLM-extracted company name, fall back to URL heuristic
+                    company_name = eval_res.get("companyName") or extract_company_name(url, source)
+                    team_name = eval_res.get("teamName")  # Can be None, that's OK
                     
                     job_data = {
                         "id": f"{hash(url)}",
@@ -290,23 +274,30 @@ async def discover_jobs(req: DiscoverRequest):
                         "linkedin": url,
                         "team": team_name,
                         "requiredExperience": eval_res.get("required_years_extracted", "Unknown"),
-                        "reason": f"Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')} | Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Remote: {eval_res.get('reasoning_trace', {}).get('remote_gate', '')}",
+                        "reason": f"Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')} | Remote: {eval_res.get('reasoning_trace', {}).get('remote_gate', '')}",
+                        "confidence": eval_res.get("confidence"),
                         "pocProfiles": []
                     }
                     
                     yield f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n"
                     
-                    # Step 4: Find POCs
-                    pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name, job_title)
+                    # Step 4: Find POC profiles (current employees, relevant department)
+                    pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
                     
-                    # Step 5: Enrich with Emails
-                    job_data["pocProfiles"] = await asyncio.to_thread(enrich_with_emails, pocs, company_name)
+                    # Step 5: Assemble POC list (no email enrichment)
+                    job_data["pocProfiles"] = build_poc_list(pocs)
                         
                     jobs_found += 1
                     yield f"data: {json.dumps(job_data)}\n\n"
+                else:
+                    # Log why the job was rejected for debugging
+                    trace = eval_res.get("reasoning_trace", {})
+                    print(f"REJECTED [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
 
         except Exception as e:
             print(f"Generator Error: {e}")
+            import traceback
+            traceback.print_exc()
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             
         yield "event: close\ndata: {}\n\n"

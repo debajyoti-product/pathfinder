@@ -1,5 +1,7 @@
 import httpx
 import json
+import re
+import time
 from config import QWEN_API_KEY, GROQ_API_KEY
 from services.usage_tracker import log_usage, is_over_limit
 
@@ -17,8 +19,6 @@ QWEN_MODELS = [
 ]
 
 def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = True) -> dict:
-    import time
-    
     if is_over_limit("groq"):
         return {"error": "Groq API limit reached (60% threshold). Process paused."}
 
@@ -48,6 +48,9 @@ def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = Tr
                     except (KeyError, IndexError):
                         last_error = {"error": "API returned invalid format", "raw": result}
                         break
+                    
+                    # Strip <think> tags from reasoning models (Qwen, DeepSeek-R1)
+                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
                     
                     if content.startswith("```json"):
                         content = content[7:-3].strip()
@@ -82,42 +85,3 @@ def _call_llama_json(prompt: str) -> dict:
 
 def _call_qwen_json(prompt: str) -> dict:
     return _call_llm_json(prompt, QWEN_MODELS, QWEN_API_KEY, json_mode=False)
-
-
-def evaluate_job_match(jd_text: str, user_profile: dict) -> dict:
-    prompt = f"""
-You are an expert Recruitment Screener. Compare the User Profile to the provided Job Description (JD).
-
-Decision Logic:
-Experience Check: Does the JD explicitly require significantly more years than the user has? (e.g., JD asks for 8 years, User has 2).
-Skill Check: Is there at least a 70% overlap in core technical skills?
-Constraint: You MUST be extremely strict. If a role is labeled "Senior", "Staff", "Principal", or "Head" and the JD asks for 5-8+ years while the user has 0-3 years, return MATCH: FALSE. Do not be lenient. Bias towards FALSE if there is any doubt about the experience gap.
-
-User Profile:
-{json.dumps(user_profile)}
-
-JD Snippet (First 3000 chars):
-{jd_text[:3000]}
-
-Return strictly a JSON object:
-{{
-  "match": boolean,
-  "reason": "Short 1-sentence explanation",
-  "confidence_score": 0.0-1.0
-}}
-    """
-    res = _call_llama_json(prompt)
-    if "match" not in res:
-        res["match"] = False
-        res["confidence_score"] = 0.0
-    return res
-
-
-def get_country(location: str) -> str:
-    if not location:
-        return ""
-    prompt = f"Identify the country from this location string: '{location}'. Return strictly a JSON object: {{'country': 'string'}}"
-    res = _call_llama_json(prompt)
-    if isinstance(res, dict) and "country" in res:
-        return res["country"]
-    return location # Fallback

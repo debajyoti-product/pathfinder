@@ -197,7 +197,6 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                               </div>
                               <div className="text-xs text-muted-foreground truncate pl-5 max-w-full">
                                 {poc.currentRole}
-                                {poc.email ? ` • ${poc.email}` : ''}
                               </div>
                             </div>
                              <div className="flex gap-1 pl-2">

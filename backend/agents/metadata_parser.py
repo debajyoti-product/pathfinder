@@ -6,8 +6,15 @@ class MetadataParser:
     def __init__(self):
         self.api_key = GROQ_API_KEY
 
-    def parse_poc_snippets(self, search_results, target_company_name: str, target_role_type: str):
-        """Extract exactly two profiles per job from Serper search snippets."""
+    def parse_poc_snippets(self, search_results, target_company_name: str, target_department: str):
+        """Extract 1-2 current employee profiles from Serper search snippets.
+        
+        Args:
+            search_results: Raw Serper API response
+            target_company_name: The company we want employees FROM
+            target_department: The team/department (e.g., "Product", "Engineering")
+                              Used to filter out irrelevant departments
+        """
         snippets = []
         for res in search_results.get("organic", []):
             snippets.append({
@@ -16,27 +23,43 @@ class MetadataParser:
                 "snippet": res.get("snippet")
             })
 
+        dept_context = f'related to "{target_department}"' if target_department else "in any relevant team"
+
         prompt = f"""## System Persona
-You are a High-Precision Entity Resolution Agent specializing in LinkedIn metadata. Your goal is to identify current employees (Peers) at a target company while strictly filtering out "Ex-employees" and "Name-Company collisions."
+You are a High-Precision Entity Resolution Agent specializing in LinkedIn metadata. Your goal is to identify 1-2 CURRENT employees at the target company who could be relevant contacts for a job applicant.
 
 ## Context
 - **Target Company:** {target_company_name}
-- **Target Role Type:** {target_role_type}
+- **Relevant Department:** {target_department or "Any (no specific team identified)"}
 - **Input Data:** {json.dumps(snippets[:10], indent=2)}
 
-## Extraction Logic & Hard Gates
-1. **Entity Collision Check:** Does the snippet indicate "{target_company_name}" as the **Employer**, or is it just part of a name/other phrase? (e.g., "Fam Smith" vs "Product at Fam"). If it's not the Employer, REJECT.
-2. **Current Employment Verification:** - Search for "Ex-", "Former", "Past", "Worked at". If these prefixes are attached to the target company, REJECT.
-   - Look for separators like "|" or "-" in titles. The company following the role MUST match the target company.
-3. **Peer Match:** Prioritize profiles where the role contains keywords related to "{target_role_type}".
+## Extraction Rules (Apply in order)
 
-## Self-Critique Loop (Internal Monologue)
-Before finalizing the JSON, ask yourself:
-- "Is 'Vidushi Saxena' actually at '{target_company_name}', or does the snippet just mention her past experience there?"
-- "Did I pick this person because their name contains the company string? (e.g., 'Fam' in name vs company)."
-- "Is the LinkedIn URL a direct profile link (/in/) and not a company page?"
+### Rule 1: CURRENT Employment Verification (CRITICAL)
+- The person MUST currently work at "{target_company_name}".
+- REJECT if the snippet contains "Ex-", "Former", "Past", "Previously at", "Worked at" before "{target_company_name}".
+- REJECT if "{target_company_name}" appears only in education, certifications, or project sections.
+- Look for patterns like "Role at {target_company_name}" or "{target_company_name} | Role" — these indicate current employment.
 
-return 2 profiles per job.
+### Rule 2: Entity Collision Check  
+- Does the snippet indicate "{target_company_name}" as the **current employer**, or is the company name part of the person's name, a university, or another phrase?
+- Example: "Fam Singh" is NOT an employee of "Fam Inc" — reject this collision.
+
+### Rule 3: Department Relevance
+- Prioritize people {dept_context}.
+- REJECT profiles from clearly unrelated departments (e.g., if target is "Product", reject someone from "Marketing Analytics" or "Sales Operations").
+- Hiring Managers, Team Leads, Recruiters, and Directors are always relevant regardless of department.
+
+### Rule 4: LinkedIn URL Validation
+- The link MUST be a direct profile URL containing "/in/" (not a company page, job listing, or post).
+
+## Self-Critique (Internal check before output)
+For each profile you select, verify:
+1. "Is this person CURRENTLY at {target_company_name}, or is it a past role?"
+2. "Is their role relevant to the {target_department or 'hiring'} context?"
+3. "Is the LinkedIn URL a real profile link (/in/)?"
+
+Return 1-2 profiles maximum. If no profiles pass all rules, return an empty array.
 
 ## Output Contract (JSON ONLY)
 {{
@@ -44,10 +67,10 @@ return 2 profiles per job.
     {{
       "name": "string",
       "linkedin_url": "string",
-      "current_role": "string",
-      "current_company": "string",
+      "current_role": "string (their current title at the company)",
+      "current_company": "{target_company_name}",
       "is_current_employee": true,
-      "confidence_score": number
+      "confidence_score": number (0.0-1.0)
     }}
   ]
 }}
@@ -57,4 +80,8 @@ return 2 profiles per job.
         if "error" in res:
             print(f"MetadataParser API Error: {res}")
             return {"profiles": []}
-        return res
+        
+        # Post-processing: filter out any profiles the LLM marked as not current
+        profiles = res.get("profiles", [])
+        verified = [p for p in profiles if p.get("is_current_employee", False) is True]
+        return {"profiles": verified}

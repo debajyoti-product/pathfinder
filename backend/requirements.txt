@@ -5,3 +5,4 @@ pypdf
 httpx
 python-dotenv
 firecrawl-py
+python-dateutil

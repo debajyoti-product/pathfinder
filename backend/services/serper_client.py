@@ -35,29 +35,16 @@ class SerperClient:
         payload = {"q": query}
         return self._call_api("search", payload)
 
-    def find_company_domain(self, company_name):
-        """Search for the official company domain (supporting .com, .ai, .in, etc.)."""
-        query = f'official website of "{company_name}"'
-        payload = {"q": query}
-        res = self._call_api("search", payload)
+    def search_linkedin_pocs(self, company, team=None):
+        """Search for current employees at the company in the relevant department.
         
-        organic = res.get("organic", [])
-        if not organic:
-            return None
-            
-        # Extract domain from the first result link
-        link = organic[0].get("link", "")
-        if link:
-            from urllib.parse import urlparse
-            domain = urlparse(link).netloc
-            if domain.startswith("www."):
-                domain = domain[4:]
-            return domain
-        return None
-
-    def search_linkedin_pocs(self, company, team, job_title):
-        """Perform site-restricted search for LinkedIn POCs."""
+        Does NOT include the job title — we want hiring managers, team leads,
+        and recruiters who typically have different titles than the open role.
+        Uses team/department name to stay relevant (e.g., "Product" team
+        won't surface Data or Marketing people).
+        """
         team_str = f'"{team}"' if team else ""
-        query = f'site:linkedin.com/in/ "{company}" {team_str} "{job_title}"'
+        # Search for current employees with leadership/hiring keywords
+        query = f'site:linkedin.com/in/ "{company}" {team_str} ("Manager" OR "Lead" OR "Head" OR "Recruiter" OR "Director")'
         payload = {"q": query}
         return self._call_api("search", payload)

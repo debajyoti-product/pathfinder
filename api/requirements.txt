@@ -7,3 +7,4 @@ python-dotenv
 google-generativeai
 groq
 firecrawl-py
+python-dateutil

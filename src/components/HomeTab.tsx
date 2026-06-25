@@ -54,7 +54,7 @@ const HomeTab = ({ onUpload, isUploading = false }: HomeTabProps) => {
         </div>
         <div className="text-center space-y-2">
           <h3 className="text-xl font-semibold text-foreground">Reading Resume</h3>
-          <p className="text-muted-foreground">Extracting experience and skills with Gemini...</p>
+          <p className="text-muted-foreground">Extracting experience & skills</p>
         </div>
       </div>
     );
