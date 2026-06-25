@@ -36,15 +36,17 @@ class SerperClient:
         return self._call_api("search", payload)
 
     def search_linkedin_pocs(self, company, team=None):
-        """Search for current employees at the company in the relevant department.
+        """Search for CURRENT employees at the company in the relevant department.
         
-        Does NOT include the job title — we want hiring managers, team leads,
-        and recruiters who typically have different titles than the open role.
-        Uses team/department name to stay relevant (e.g., "Product" team
-        won't surface Data or Marketing people).
+        Strategy:
+        - Uses "current" keyword to bias Google towards active employees
+        - Uses team/department to stay department-relevant
+        - Leadership keywords find hiring managers, not individual contributors
+        - Does NOT include job title — hiring managers have different titles
         """
         team_str = f'"{team}"' if team else ""
-        # Search for current employees with leadership/hiring keywords
-        query = f'site:linkedin.com/in/ "{company}" {team_str} ("Manager" OR "Lead" OR "Head" OR "Recruiter" OR "Director")'
+        # The "current" keyword helps Google prioritize active employees
+        # over people who list the company as a past employer
+        query = f'site:linkedin.com/in/ current "{company}" {team_str} ("Manager" OR "Lead" OR "Head" OR "Recruiter" OR "Director")'
         payload = {"q": query}
         return self._call_api("search", payload)

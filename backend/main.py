@@ -6,6 +6,7 @@ from typing import List, Optional
 import httpx
 import json
 import asyncio
+import re
 from pypdf import PdfReader
 from io import BytesIO
 from config import (
@@ -35,6 +36,75 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Seniority Pre-Filter ────────────────────────────────────────────────────
+# These title keywords indicate a role that requires significantly more
+# experience than a 1-3 year candidate should apply for.
+# This is a DETERMINISTIC Python check — not LLM-dependent.
+
+SENIOR_TITLE_KEYWORDS = [
+    "senior", "sr.", "sr ", "staff", "principal", "director",
+    "head of", "head,", "head ", "vp ", "vp,", "vice president",
+    "avp", "a]vp", "group product", "group pm", "chief",
+    "fellow", "distinguished", "architect", "lead product",
+    "lead pm", "specialist",  # specialist often implies 5+ yrs domain expertise
+]
+
+def is_title_too_senior(title: str, candidate_years: float) -> bool:
+    """Deterministic pre-filter: reject senior titles for junior candidates.
+    
+    This runs BEFORE any LLM call or JD scraping, saving API credits.
+    Candidates with 5+ years are not filtered.
+    """
+    if candidate_years >= 5:
+        return False  # Senior enough — let LLM do fine-grained matching
+    
+    title_lower = title.lower()
+    for keyword in SENIOR_TITLE_KEYWORDS:
+        if keyword in title_lower:
+            return True
+    return False
+
+def parse_years_from_requirement(req_str: str) -> Optional[float]:
+    """Extract the minimum required years from strings like '5+ years', '3-5 years', '8 years'.
+    
+    Returns the lower bound as a float, or None if unparseable.
+    """
+    if not req_str or req_str in ("Unknown", "Not specified"):
+        return None
+    req_lower = req_str.lower()
+    # "5-8 years" → 5.0
+    match = re.search(r'(\d+)\s*[\-–]\s*(\d+)', req_lower)
+    if match:
+        return float(match.group(1))
+    # "5+ years" → 5.0
+    match = re.search(r'(\d+)\s*\+', req_lower)
+    if match:
+        return float(match.group(1))
+    # "5 years" → 5.0
+    match = re.search(r'(\d+)', req_lower)
+    if match:
+        return float(match.group(1))
+    return None
+
+def is_experience_mismatch(required_years_str: str, candidate_years: float) -> bool:
+    """Deterministic post-filter: reject if JD's required years far exceed candidate's.
+    
+    This runs AFTER the LLM call as a safety net.
+    Rejects if the JD's minimum requirement is > candidate_years + 1.
+    """
+    min_required = parse_years_from_requirement(required_years_str)
+    if min_required is None:
+        return False  # Can't parse — let the LLM decision stand
+    
+    # Reject if JD asks for significantly more than candidate has
+    # A 2-year candidate should NOT see jobs asking for 4+ years
+    if min_required > candidate_years + 1.5:
+        return True
+    return False
+
+
+# ── Existing Utilities ───────────────────────────────────────────────────────
 
 class RoleDetail(BaseModel):
     title: str
@@ -98,8 +168,6 @@ def fetch_jina(url: str) -> str:
 
 def strip_jd_noise(text: str) -> str:
     """Take a meaningful portion of scraped JD to remove nav/sidebar noise."""
-    # Increased from 2500 to 4000 to capture experience requirements 
-    # that often appear after company description and role overview
     return text[:4000]
 
 def fetch_jd(url: str) -> str:
@@ -144,13 +212,21 @@ class DiscoverRequest(BaseModel):
     profile: ProfileData
 
 async def collect_job_urls(job_title: str, location: str) -> list:
-    """Step 1: Collect job URLs from multiple sources concurrently."""
+    """Step 1: Collect job URLs from multiple sources concurrently.
+    
+    Returns list of (url, source, serper_title) tuples.
+    The serper_title is used for deterministic seniority pre-filtering.
+    """
     all_urls = []
     
     def search_li():
         try:
             res = serper_client.search(f'site:linkedin.com/jobs/view "{job_title}" "{location}"')
-            return [(i.get("link"), "LinkedIn") for i in res.get("organic", []) if "linkedin.com/jobs" in i.get("link", "")]
+            return [
+                (i.get("link"), "LinkedIn", i.get("title", ""))
+                for i in res.get("organic", [])
+                if "linkedin.com/jobs" in i.get("link", "")
+            ]
         except Exception as e:
             print(f"LinkedIn Search Error: {e}")
             return []
@@ -158,7 +234,11 @@ async def collect_job_urls(job_title: str, location: str) -> list:
     def search_nk():
         try:
             res = serper_client.search(f'site:naukri.com "{job_title}" "{location}"')
-            return [(i.get("link"), "Naukri") for i in res.get("organic", []) if "naukri.com" in i.get("link", "") and "/job-listings-" in i.get("link", "")]
+            return [
+                (i.get("link"), "Naukri", i.get("title", ""))
+                for i in res.get("organic", [])
+                if "naukri.com" in i.get("link", "") and "/job-listings-" in i.get("link", "")
+            ]
         except Exception as e:
             print(f"Naukri Search Error: {e}")
             return []
@@ -171,7 +251,7 @@ async def collect_job_urls(job_title: str, location: str) -> list:
                 url = item.get("link")
                 if url:
                     source = "Greenhouse" if "greenhouse" in url else "Lever" if "lever" in url else "Workday" if "workday" in url else "JobBoard"
-                    urls.append((url, source))
+                    urls.append((url, source, item.get("title", "")))
             return urls
         except Exception as e:
             print(f"Board Search Error: {e}")
@@ -190,10 +270,10 @@ async def collect_job_urls(job_title: str, location: str) -> list:
     # Deduplicate while preserving order
     seen = set()
     unique_urls = []
-    for url, source in all_urls:
+    for url, source, title in all_urls:
         if url not in seen:
             seen.add(url)
-            unique_urls.append((url, source))
+            unique_urls.append((url, source, title))
             
     return unique_urls
 
@@ -234,9 +314,10 @@ async def discover_jobs(req: DiscoverRequest):
         try:
             job_title = profile.get("job_title", "Product Manager")
             location = profile.get("location", "India")
+            candidate_years = float(profile.get("actual_years_exp", 0))
             
             print(f"--- Discovery Started ---")
-            print(f"Title: {job_title}, Location: {location}")
+            print(f"Title: {job_title}, Location: {location}, Candidate Years: {candidate_years}")
             print(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
             
             yield f"data: {json.dumps({'status': 'Searching job boards concurrently...'})}\n\n"
@@ -246,12 +327,23 @@ async def discover_jobs(req: DiscoverRequest):
             print(f"Total Unique URLs found: {len(urls)}")
             
             jobs_found = 0
+            pre_filtered = 0
+            post_filtered = 0
             
-            for url, source in urls:
+            for url, source, serper_title in urls:
                 if jobs_found >= 10:  # Cap at 10 results
                     break
+                
+                # ── GATE 0: Deterministic Title Pre-Filter (Python, no LLM) ─────
+                # Check the Serper result title AND URL slug for senior keywords.
+                # This saves Firecrawl/Jina credits and LLM API calls.
+                check_text = f"{serper_title} {url}".lower()
+                if is_title_too_senior(check_text, candidate_years):
+                    pre_filtered += 1
+                    print(f"PRE-FILTER REJECT [{source}]: '{serper_title[:60]}' — too senior for {candidate_years}yr candidate")
+                    continue
                     
-                yield f"data: {json.dumps({'status': f'Fetching JD from {source}...'})}\n\n"
+                yield f"data: {json.dumps({'status': f'Evaluating role from {source}...'})}\n\n"
                 
                 # Step 2: Fetch and clean the JD text
                 jd_clean = await fetch_and_clean_jd(url)
@@ -261,38 +353,50 @@ async def discover_jobs(req: DiscoverRequest):
                 # Step 3: Validate using Agent 3 (Qwen) — experience gate is highest priority
                 eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile)
                 
-                if eval_res.get("isValidRange") is True:
-                    # Use LLM-extracted company name, fall back to URL heuristic
-                    company_name = eval_res.get("companyName") or extract_company_name(url, source)
-                    team_name = eval_res.get("teamName")  # Can be None, that's OK
-                    
-                    job_data = {
-                        "id": f"{hash(url)}",
-                        "company": company_name,
-                        "jobTitle": job_title,
-                        "url": url,
-                        "linkedin": url,
-                        "team": team_name,
-                        "requiredExperience": eval_res.get("required_years_extracted", "Unknown"),
-                        "reason": f"Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')} | Remote: {eval_res.get('reasoning_trace', {}).get('remote_gate', '')}",
-                        "confidence": eval_res.get("confidence"),
-                        "pocProfiles": []
-                    }
-                    
-                    yield f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n"
-                    
-                    # Step 4: Find POC profiles (current employees, relevant department)
-                    pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
-                    
-                    # Step 5: Assemble POC list (no email enrichment)
-                    job_data["pocProfiles"] = build_poc_list(pocs)
-                        
-                    jobs_found += 1
-                    yield f"data: {json.dumps(job_data)}\n\n"
-                else:
-                    # Log why the job was rejected for debugging
+                if eval_res.get("isValidRange") is not True:
                     trace = eval_res.get("reasoning_trace", {})
-                    print(f"REJECTED [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
+                    print(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
+                    continue
+                
+                # ── GATE POST: Deterministic Experience Post-Filter (Python) ────
+                # Safety net: even if the LLM says "valid", reject if the
+                # extracted experience requirement clearly exceeds candidate's years.
+                req_years_str = eval_res.get("required_years_extracted", "Unknown")
+                if is_experience_mismatch(req_years_str, candidate_years):
+                    post_filtered += 1
+                    print(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
+                    continue
+                
+                # ── All gates passed — build the job card ────────────────────────
+                # Use LLM-extracted company name, fall back to URL heuristic
+                company_name = eval_res.get("companyName") or extract_company_name(url, source)
+                team_name = eval_res.get("teamName")  # Can be None, that's OK
+                
+                job_data = {
+                    "id": f"{hash(url)}",
+                    "company": company_name,
+                    "jobTitle": job_title,
+                    "url": url,
+                    "linkedin": url,
+                    "team": team_name,
+                    "requiredExperience": req_years_str,
+                    "reason": f"Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')}",
+                    "confidence": eval_res.get("confidence"),
+                    "pocProfiles": []
+                }
+                
+                yield f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n"
+                
+                # Step 4: Find POC profiles (current employees, relevant department)
+                pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
+                
+                # Step 5: Assemble POC list
+                job_data["pocProfiles"] = build_poc_list(pocs)
+                    
+                jobs_found += 1
+                yield f"data: {json.dumps(job_data)}\n\n"
+
+            print(f"--- Discovery Complete: {jobs_found} matched, {pre_filtered} pre-filtered, {post_filtered} post-filtered ---")
 
         except Exception as e:
             print(f"Generator Error: {e}")
