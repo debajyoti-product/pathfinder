@@ -28,6 +28,7 @@ export interface JobResult {
   company: string;
   name?: string;
   jobTitle: string;
+  url?: string;
   linkedin: string;
   team?: string | null;
   requiredExperience?: string;

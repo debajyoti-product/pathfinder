@@ -22,7 +22,10 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
     if (!profile) return;
     try {
       setLoading(true);
-      const res = await draftEmail(profile, result.jobTitle, result.company, result.name);
+      const pocName = result.name || undefined;
+      const pocRole = result.pocProfiles?.find(p => p.name === result.name)?.currentRole || undefined;
+      const jobUrl = result.url || result.linkedin || undefined;
+      const res = await draftEmail(profile, result.jobTitle, result.company, pocName, pocRole, jobUrl);
       setDraft(res.email);
       setResearch(res.news || []);
     } catch (e) {
@@ -106,8 +109,12 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
         <div className="h-4 w-px bg-border" />
         <div>
           <span className="text-sm text-muted-foreground">Drafting for </span>
-          <span className="text-sm font-semibold text-foreground">{result.name}</span>
-          <span className="text-sm text-muted-foreground"> at </span>
+          {result.name && (
+            <>
+              <span className="text-sm font-semibold text-foreground">{result.name}</span>
+              <span className="text-sm text-muted-foreground"> at </span>
+            </>
+          )}
           <span className="text-sm font-semibold text-primary">{result.company}</span>
         </div>
       </div>

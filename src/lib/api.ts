@@ -147,19 +147,35 @@ export async function discoverReferrals(company: string, jobTitle: string) {
   return (await res.json()).referrers;
 }
 
-export async function draftEmail(profile: ProfileData, jobTitle: string, company: string, pocName?: string): Promise<{email: string, news: any[]}> {
+export async function draftEmail(
+  profile: ProfileData,
+  jobTitle: string,
+  company: string,
+  pocName?: string,
+  pocRole?: string,
+  jobUrl?: string
+): Promise<{email: string, news: any[]}> {
   const payload = {
-    job_title: profile.targetRoles[0] || "Engineer",
+    job_title: profile.targetRoles[0] || "Product Manager",
     skills: profile.coreSkills,
-    actual_years_exp: profile.actualYears || 0,
+    actual_years_exp: Math.round(profile.actualYears || 0),
     search_range: [profile.experienceRange],
     industry: profile.industry || "General",
+    location: profile.location || "India",
+    remote_only: profile.remoteOnly || false,
   };
 
   const res = await fetch("/api/draft-email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ profile: payload, job_title: jobTitle, company, poc_name: pocName || null }),
+    body: JSON.stringify({
+      profile: payload,
+      job_title: jobTitle,
+      company,
+      poc_name: pocName || null,
+      poc_role: pocRole || null,
+      job_url: jobUrl || null,
+    }),
   });
 
   if (!res.ok) throw new Error("Failed to draft email");

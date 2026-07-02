@@ -433,6 +433,8 @@ class DraftRequest(BaseModel):
     job_title: str
     company: str
     poc_name: Optional[str] = None
+    poc_role: Optional[str] = None
+    job_url: Optional[str] = None
 
 
 @app.post("/api/draft-email")
@@ -443,6 +445,9 @@ async def draft_email(req: DraftRequest):
     news_items = serper_res.get("news", [])
 
     news_snippet = "\n".join([n.get("title", "") for n in news_items[:3]])
+    if not news_snippet.strip():
+        news_snippet = "No recent news available — focus on the company mission and role fit instead."
+
     profile_summary = f"{req.profile.job_title} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
 
     result = email_drafter.draft(
@@ -450,8 +455,8 @@ async def draft_email(req: DraftRequest):
         job_title=req.job_title,
         company=req.company,
         poc_name=req.poc_name or "Hiring Team",
-        poc_role="Hiring Team",
-        job_url="Unknown URL",
+        poc_role=req.poc_role or "Hiring Team",
+        job_url=req.job_url or "Not provided",
         news_snippet=news_snippet,
     )
 
