@@ -102,9 +102,25 @@ def test_location_mismatch_filter():
     
     print("test_location_mismatch_filter passed.")
 
+def test_jd_location_prefilter():
+    """Test the loose deterministic JD text location filter."""
+    print("\n--- Testing JD Location Pre-filter ---")
+    from main import is_jd_location_mismatch
+    
+    jd_remote = "We are a fully remote company looking for great people."
+    jd_india = "Our office is located in Bengaluru, but we have people all over."
+    jd_us = "Must be based in New York or San Francisco."
+    
+    assert is_jd_location_mismatch(jd_remote.lower(), "India") is False # Remote passes everything
+    assert is_jd_location_mismatch(jd_india.lower(), "India") is False # Bengaluru -> India match
+    assert is_jd_location_mismatch(jd_us.lower(), "India") is True # No mention of India/aliases/remote
+    
+    print("test_jd_location_prefilter passed.")
+
 if __name__ == "__main__":
     # test_job_discovery_serper()
     # test_firecrawl_scraping()
     # test_resume_upload_integration()
     test_expired_jd_filter()
     test_location_mismatch_filter()
+    test_jd_location_prefilter()

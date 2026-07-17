@@ -185,6 +185,39 @@ def is_location_mismatch(detected_location: str, user_location: str) -> bool:
     # If no substring match and no alias match, it's a mismatch
     return True
 
+def is_jd_location_mismatch(jd_lower: str, user_location: str) -> bool:
+    """
+    Very loose deterministic pre-filter for JD text.
+    If the JD text doesn't contain the user's location, any aliases, or the word 'remote',
+    we can confidently reject it before calling the LLM.
+    """
+    if not jd_lower or not user_location:
+        return False
+        
+    usr_low = user_location.lower()
+    
+    if "remote" in jd_lower or "anywhere" in jd_lower:
+        return False
+        
+    if usr_low in jd_lower:
+        return False
+        
+    aliases = {
+        "india": ["bangalore", "bengaluru", "pune", "mumbai", "delhi", "noida", "gurgaon", "gurugram", "chennai", "hyderabad", "kolkata", "ahmedabad", "remote - india", "remote (india)"],
+        "bangalore": ["india", "bengaluru"],
+        "bengaluru": ["india", "bangalore"],
+        "united states": ["us", "usa", "remote - us", "remote (us)"],
+        "us": ["united states", "usa"],
+        "usa": ["united states", "us"]
+    }
+    
+    for key, valid_terms in aliases.items():
+        if key in usr_low:
+            if any(term in jd_lower for term in valid_terms):
+                return False
+                
+    return True
+
 def extract_company_name(url: str, source: Optional[str] = None) -> str:
     """Heuristic fallback to extract company name from job board URLs."""
     company_name = "Unknown"
@@ -416,6 +449,13 @@ async def discover_jobs(req: DiscoverRequest):
                 if is_expired:
                     pre_filtered += 1
                     print(f"PRE-FILTER REJECT [{source}]: Job appears to be expired — URL={url[:80]}")
+                    continue
+                # ── GATE 2: Deterministic Location Pre-Filter (Python, no LLM) ────
+                # Extremely loose check: if the user's location (or alias) is nowhere in the JD,
+                # AND it doesn't say remote, reject it before spending LLM tokens.
+                if is_jd_location_mismatch(jd_lower, location):
+                    pre_filtered += 1
+                    print(f"PRE-FILTER REJECT [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
                     continue
                     
                 # Step 3: Validate using Agent 3 (Qwen) — experience gate is highest priority
