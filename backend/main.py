@@ -261,7 +261,29 @@ def fetch_jina(url: str) -> str:
 
 def strip_jd_noise(text: str) -> str:
     """Take a meaningful portion of scraped JD to remove nav/sidebar noise."""
-    return text[:4000]
+    import re
+    # Strip common boilerplate patterns that pad the top of JDs
+    patterns_to_remove = [
+        r"(?i)accept all cookies",
+        r"(?i)cookie policy",
+        r"(?i)privacy policy",
+        r"(?i)terms of service",
+        r"(?i)skip to main content",
+        r"(?i)skip to content",
+        r"(?i)apply now",
+        r"(?i)save job",
+        r"(?i)search jobs",
+        r"(?i)sign in",
+    ]
+    
+    clean_text = text
+    for pattern in patterns_to_remove:
+        clean_text = re.sub(pattern, "", clean_text)
+        
+    # Strip multiple blank lines resulting from deletion
+    clean_text = re.sub(r'\n\s*\n', '\n\n', clean_text).strip()
+    
+    return clean_text[:4000]
 
 def fetch_jd(url: str) -> str:
     """Fetch job description via Firecrawl (primary) or Jina Reader (fallback)."""
