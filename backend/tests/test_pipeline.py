@@ -84,8 +84,27 @@ def test_expired_jd_filter():
     assert is_expired_false is False, "Should not flag active JD"
     print("test_expired_jd_filter passed.")
 
+def test_location_mismatch_filter():
+    """Test deterministic location matching logic."""
+    print("\n--- Testing Location Mismatch Filter ---")
+    from main import is_location_mismatch
+    
+    # Matching cases (should return False)
+    assert is_location_mismatch("Bangalore, India", "India") is False
+    assert is_location_mismatch("India", "Bangalore") is False
+    assert is_location_mismatch("New York, NY", "New York") is False
+    assert is_location_mismatch("Pune", "India") is False
+    assert is_location_mismatch("Remote", "India") is False
+    
+    # Mismatch cases (should return True)
+    assert is_location_mismatch("London, UK", "India") is True
+    assert is_location_mismatch("New York, USA", "India") is True
+    
+    print("test_location_mismatch_filter passed.")
+
 if __name__ == "__main__":
     # test_job_discovery_serper()
     # test_firecrawl_scraping()
     # test_resume_upload_integration()
     test_expired_jd_filter()
+    test_location_mismatch_filter()

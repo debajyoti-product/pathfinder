@@ -137,6 +137,42 @@ class ProfileData(BaseModel):
     location: Optional[str] = None
     remote_only: Optional[bool] = False
 
+def is_location_mismatch(detected_location: str, user_location: str) -> bool:
+    """
+    Deterministic post-filter for location.
+    Matches extracted location against user location via substring and alias tables.
+    Returns True if it's a definite mismatch.
+    """
+    if not detected_location:
+        return False
+        
+    det_low = detected_location.lower()
+    usr_low = user_location.lower()
+    
+    if det_low in ["unknown", "remote", "not specified"]:
+        return False
+        
+    if usr_low in det_low or det_low in usr_low:
+        return False
+        
+    # Alias mappings (User Location -> Valid Detected Terms)
+    aliases = {
+        "india": ["bangalore", "bengaluru", "pune", "mumbai", "delhi", "noida", "gurgaon", "gurugram", "chennai", "hyderabad", "kolkata", "ahmedabad", "remote - india", "remote (india)"],
+        "bangalore": ["india", "bengaluru"],
+        "bengaluru": ["india", "bangalore"],
+        "united states": ["us", "usa", "remote - us", "remote (us)"],
+        "us": ["united states", "usa"],
+        "usa": ["united states", "us"]
+    }
+    
+    for key, valid_terms in aliases.items():
+        if key in usr_low:
+            if any(term in det_low for term in valid_terms):
+                return False
+                
+    # If no substring match and no alias match, it's a mismatch
+    return True
+
 def extract_company_name(url: str, source: Optional[str] = None) -> str:
     """Heuristic fallback to extract company name from job board URLs."""
     company_name = "Unknown"
@@ -385,6 +421,13 @@ async def discover_jobs(req: DiscoverRequest):
                 if is_experience_mismatch(req_years_str, candidate_years):
                     post_filtered += 1
                     print(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
+                    continue
+                    
+                # ── GATE POST 2: Deterministic Location Post-Filter (Python) ────
+                detected_loc = eval_res.get("detected_location", "Unknown")
+                if is_location_mismatch(detected_loc, profile.location):
+                    post_filtered += 1
+                    print(f"POST-FILTER REJECT [{source}]: Location mismatch (Required: {detected_loc}, User: {profile.location}) — URL={url[:80]}")
                     continue
                 
                 # ── All gates passed — build the job card ────────────────────────
