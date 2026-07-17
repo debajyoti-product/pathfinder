@@ -480,15 +480,17 @@ class ReferralRequest(BaseModel):
 
 @app.post("/api/discover-referrals")
 async def discover_referrals(req: ReferralRequest):
-    query = f'site:linkedin.com/in/ "{req.company}" ("Recruiter" OR "Lead" OR "Manager")'
-    serper_res = serper_client.search(query)
-    organic = serper_res.get("organic", [])
+    # Try to derive a team heuristic from the job title, or default to general
+    team_name = req.jobTitle.split()[-1] if req.jobTitle else ""
+    
+    # Use the same verified MetadataParser path as the main discovery flow
+    poc_profiles = await asyncio.to_thread(find_poc_profiles, req.company, team_name)
     
     referrers = []
-    for r in organic[:5]:
+    for p in poc_profiles:
         referrers.append({
-            "name": r.get("title", "LinkedIn Member").split("-")[0].strip(),
-            "linkedin": r.get("link"),
+            "name": p.get("name", "LinkedIn Member"),
+            "linkedin": p.get("linkedin_url", ""),
             "company": req.company
         })
         

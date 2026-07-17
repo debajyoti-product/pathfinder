@@ -10,7 +10,6 @@ ALERTS_FILE = os.path.join(_BASE_DIR, "api_alerts.md")
 # Approximate Daily Limits (Free Tiers)
 LIMITS = {
     "serper": 1000,
-    "hunter": 25,
     "groq": 1000  # Groq is more complex but we'll use a count for simplicity
 }
 
@@ -18,22 +17,23 @@ def log_usage(service, count=1):
     now = datetime.now().strftime("%Y-%m-%d")
     
     usage_data = {}
-    if os.path.exists(USAGE_FILE):
-        try:
+    try:
+        if os.path.exists(USAGE_FILE):
             with open(USAGE_FILE, "r") as f:
                 usage_data = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            usage_data = {}
+    except Exception as e:
+        print(f"Usage tracker read error: {e}")
+        usage_data = {}
     
     if now not in usage_data:
-        usage_data[now] = {"serper": 0, "hunter": 0, "groq": 0}
+        usage_data[now] = {"serper": 0, "groq": 0}
     
     usage_data[now][service] = usage_data[now].get(service, 0) + count
     
     try:
         with open(USAGE_FILE, "w") as f:
             json.dump(usage_data, f, indent=2)
-    except IOError as e:
+    except Exception as e:
         print(f"Usage tracker write error: {e}")
     
     check_limits(now, usage_data[now])
@@ -44,7 +44,7 @@ def check_limits(date, current_usage):
         used = current_usage.get(service, 0)
         percentage = (used / limit) * 100
         
-        if percentage >= 60:
+        if percentage >= 80:
             alerts.append(f"> [!WARNING]\n> **{service.upper()}** usage: {used}/{limit} ({percentage:.1f}%). Limit alert triggered!")
     
     if alerts:
@@ -58,18 +58,18 @@ def update_alerts_file(date, alerts):
     try:
         with open(ALERTS_FILE, "w") as f:
             f.write(content)
-    except IOError as e:
+    except Exception as e:
         print(f"Usage tracker alert write error: {e}")
 
 def is_over_limit(service):
     now = datetime.now().strftime("%Y-%m-%d")
-    if not os.path.exists(USAGE_FILE):
-        return False
-        
     try:
+        if not os.path.exists(USAGE_FILE):
+            return False
+            
         with open(USAGE_FILE, "r") as f:
             usage_data = json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except Exception:
         return False
         
     if now not in usage_data:
@@ -77,5 +77,5 @@ def is_over_limit(service):
         
     used = usage_data[now].get(service, 0)
     limit = LIMITS.get(service, 1000)
-    return (used / limit) >= 0.6
+    return (used / limit) >= 1.0
 
