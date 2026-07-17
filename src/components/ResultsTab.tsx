@@ -292,8 +292,6 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
             </div>
           ))}
         </div>
-      )}
-      
       {results.length === 0 && Object.keys(activeJobs).length === 0 && !loading && (
         <div className="rounded-xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center py-16 gap-3">
           <Briefcase className="w-10 h-10 text-muted-foreground/40" />
