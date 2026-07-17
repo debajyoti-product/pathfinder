@@ -6,8 +6,7 @@ from config import GROQ_API_KEY
 from services.usage_tracker import log_usage, is_over_limit
 
 LLAMA_MODELS = [
-    "llama-3.1-8b-instant",
-    "llama3-8b-8192"
+    "llama-3.1-8b-instant"
 ]
 
 LLAMA_70B_MODELS = [

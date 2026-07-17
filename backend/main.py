@@ -596,12 +596,20 @@ class DraftRequest(BaseModel):
     job_url: Optional[str] = None
 
 
+# Simple in-memory cache for news during the session
+NEWS_CACHE = {}
+
 @app.post("/api/draft-email")
 async def draft_email(req: DraftRequest):
     # News from last 6 months
-    news_query = f'{req.company} news'
-    serper_res = serper_client.search(news_query, search_type="news", tbs="qdr:m6")
-    news_items = serper_res.get("news", [])
+    company_key = req.company.lower().strip()
+    if company_key in NEWS_CACHE:
+        news_items = NEWS_CACHE[company_key]
+    else:
+        news_query = f'{req.company} news'
+        serper_res = serper_client.search(news_query, search_type="news", tbs="qdr:m6")
+        news_items = serper_res.get("news", [])
+        NEWS_CACHE[company_key] = news_items
 
     news_snippet = "\n".join([n.get("title", "") for n in news_items[:3]])
     if not news_snippet.strip():
