@@ -399,6 +399,104 @@ def build_poc_list(poc_profiles: list) -> list:
     ]
 
 
+async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dict, candidate_years, stats):
+    async with sem:
+        try:
+            job_title = profile_dict.get("job_title", "Product Manager")
+            location = profile_dict.get("location", "India")
+            
+            # ── GATE 0: Deterministic Title Pre-Filter (Python, no LLM) ─────
+            check_text = f"{serper_title} {url}".lower()
+            if is_title_too_senior(check_text, candidate_years):
+                stats["pre_filtered"] += 1
+                print(f"PRE-FILTER REJECT [{source}]: '{serper_title[:60]}' — too senior for {candidate_years}yr candidate")
+                return
+                
+            await queue.put(f"data: {json.dumps({'status': f'Evaluating role from {source}...'})}\n\n")
+            
+            # Step 2: Fetch and clean the JD text
+            jd_clean = await fetch_and_clean_jd(url)
+            if not jd_clean:
+                return
+                
+            # ── GATE 1: Deterministic Expired Posting Check (Python, no LLM) ──
+            jd_lower = jd_clean.lower()
+            is_expired = any(phrase in jd_lower for phrase in EXPIRED_PHRASES)
+            if is_expired:
+                stats["pre_filtered"] += 1
+                print(f"PRE-FILTER REJECT [{source}]: Job appears to be expired — URL={url[:80]}")
+                return
+                
+            # ── GATE 2: Deterministic Location Pre-Filter (Python, no LLM) ────
+            if is_jd_location_mismatch(jd_lower, location):
+                stats["pre_filtered"] += 1
+                print(f"PRE-FILTER REJECT [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
+                return
+                
+            # Step 3: Validate using Agent 3 (Qwen)
+            eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile_dict)
+            
+            if eval_res.get("isValidRange") is not True:
+                trace = eval_res.get("reasoning_trace", {})
+                if "error" in eval_res:
+                    print(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
+                else:
+                    print(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
+                return
+                
+            # ── GATE POST: Deterministic Experience Post-Filter (Python) ────
+            req_years_str = eval_res.get("required_years_extracted", "Unknown")
+            if is_experience_mismatch(req_years_str, candidate_years):
+                stats["post_filtered"] += 1
+                print(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
+                return
+                
+            # ── GATE POST 2: Deterministic Location Post-Filter (Python) ────
+            detected_loc = eval_res.get("detected_location", "Unknown")
+            if is_location_mismatch(detected_loc, profile_dict.get("location", "India")):
+                stats["post_filtered"] += 1
+                print(f"POST-FILTER REJECT [{source}]: Location mismatch (Required: {detected_loc}, User: {profile_dict.get('location', 'India')}) — URL={url[:80]}")
+                return
+                
+            # ── All gates passed — build the job card ────────────────────────
+            company_name = eval_res.get("companyName") or extract_company_name(url, source)
+            team_name = eval_res.get("teamName")
+            
+            job_data = {
+                "id": f"{hash(url)}",
+                "company": company_name,
+                "jobTitle": job_title,
+                "url": url,
+                "linkedin": url,
+                "team": team_name,
+                "requiredExperience": req_years_str,
+                "reason": f"Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')}",
+                "confidence": eval_res.get("confidence"),
+                "pocProfiles": []
+            }
+            
+            await queue.put(f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n")
+            
+            # Step 4: Find POC profiles (current employees, relevant department)
+            pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
+            job_data["pocProfiles"] = build_poc_list(pocs)
+            
+            # Fix 2: atomic cap check (no overshoot)
+            # The jobs_found >= 10 check-and-increment must happen as a single non-await-interrupted block.
+            # Multiple concurrent tasks can reach this check simultaneously between awaits.
+            # We increment and check before putting the result into the queue, inside one synchronous section.
+            if stats["jobs_found"] >= 10:
+                print(f"OVERSHOOT AVOIDED [{source}]: Discarding valid job because cap (10) was hit concurrently — URL={url[:80]}")
+                return
+                
+            stats["jobs_found"] += 1
+            await queue.put(f"data: {json.dumps(job_data)}\n\n")
+            
+        except Exception as e:
+            print(f"Worker Error on {url}: {e}")
+            import traceback
+            traceback.print_exc()
+
 @app.post("/api/discover-jobs")
 async def discover_jobs(req: DiscoverRequest):
     profile = req.profile.dict()
@@ -419,102 +517,43 @@ async def discover_jobs(req: DiscoverRequest):
             urls = await collect_job_urls(job_title, location)
             print(f"Total Unique URLs found: {len(urls)}")
             
-            jobs_found = 0
-            pre_filtered = 0
-            post_filtered = 0
+            stats = {"jobs_found": 0, "pre_filtered": 0, "post_filtered": 0}
+            queue = asyncio.Queue()
+            sem = asyncio.Semaphore(3)
             
+            tasks = []
             for url, source, serper_title in urls:
-                if jobs_found >= 10:  # Cap at 10 results
+                task = asyncio.create_task(
+                    evaluate_single_job(url, source, serper_title, queue, sem, profile, candidate_years, stats)
+                )
+                tasks.append(task)
+                
+            # Create a supervisor task to push a sentinel when all workers finish
+            async def worker_supervisor():
+                await asyncio.gather(*tasks, return_exceptions=True)
+                await queue.put(None)
+                
+            supervisor_task = asyncio.create_task(worker_supervisor())
+            
+            # Yield from queue as tasks complete
+            while True:
+                msg = await queue.get()
+                if msg is None:  # All tasks done
                     break
+                yield msg
+                if stats["jobs_found"] >= 10:
+                    break
+            
+            # Fix 3: best-effort cancellation
+            if not supervisor_task.done():
+                supervisor_task.cancel()
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
+                # Explicitly log the tradeoff: in-flight HTTP calls aren't stopped
+                print("Cancelling pending/in-flight asyncio tasks. Note: this does not stop in-flight asyncio.to_thread calls to Firecrawl/Jina/Serper; those API calls will complete in the background and their cost is already spent.")
                 
-                # ── GATE 0: Deterministic Title Pre-Filter (Python, no LLM) ─────
-                # Check the Serper result title AND URL slug for senior keywords.
-                # This saves Firecrawl/Jina credits and LLM API calls.
-                check_text = f"{serper_title} {url}".lower()
-                if is_title_too_senior(check_text, candidate_years):
-                    pre_filtered += 1
-                    print(f"PRE-FILTER REJECT [{source}]: '{serper_title[:60]}' — too senior for {candidate_years}yr candidate")
-                    continue
-                    
-                yield f"data: {json.dumps({'status': f'Evaluating role from {source}...'})}\n\n"
-                
-                # Step 2: Fetch and clean the JD text
-                jd_clean = await fetch_and_clean_jd(url)
-                if not jd_clean:
-                    continue
-                    
-                # ── GATE 1: Deterministic Expired Posting Check (Python, no LLM) ──
-                jd_lower = jd_clean.lower()
-                is_expired = any(phrase in jd_lower for phrase in EXPIRED_PHRASES)
-                if is_expired:
-                    pre_filtered += 1
-                    print(f"PRE-FILTER REJECT [{source}]: Job appears to be expired — URL={url[:80]}")
-                    continue
-                # ── GATE 2: Deterministic Location Pre-Filter (Python, no LLM) ────
-                # Extremely loose check: if the user's location (or alias) is nowhere in the JD,
-                # AND it doesn't say remote, reject it before spending LLM tokens.
-                if is_jd_location_mismatch(jd_lower, location):
-                    pre_filtered += 1
-                    print(f"PRE-FILTER REJECT [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
-                    continue
-                    
-                # Step 3: Validate using Agent 3 (Qwen) — experience gate is highest priority
-                eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile)
-                
-                if eval_res.get("isValidRange") is not True:
-                    trace = eval_res.get("reasoning_trace", {})
-                    if "error" in eval_res:
-                        print(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
-                    else:
-                        print(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
-                    continue
-                
-                # ── GATE POST: Deterministic Experience Post-Filter (Python) ────
-                # Safety net: even if the LLM says "valid", reject if the
-                # extracted experience requirement clearly exceeds candidate's years.
-                req_years_str = eval_res.get("required_years_extracted", "Unknown")
-                if is_experience_mismatch(req_years_str, candidate_years):
-                    post_filtered += 1
-                    print(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
-                    continue
-                    
-                # ── GATE POST 2: Deterministic Location Post-Filter (Python) ────
-                detected_loc = eval_res.get("detected_location", "Unknown")
-                if is_location_mismatch(detected_loc, profile.location):
-                    post_filtered += 1
-                    print(f"POST-FILTER REJECT [{source}]: Location mismatch (Required: {detected_loc}, User: {profile.location}) — URL={url[:80]}")
-                    continue
-                
-                # ── All gates passed — build the job card ────────────────────────
-                # Use LLM-extracted company name, fall back to URL heuristic
-                company_name = eval_res.get("companyName") or extract_company_name(url, source)
-                team_name = eval_res.get("teamName")  # Can be None, that's OK
-                
-                job_data = {
-                    "id": f"{hash(url)}",
-                    "company": company_name,
-                    "jobTitle": job_title,
-                    "url": url,
-                    "linkedin": url,
-                    "team": team_name,
-                    "requiredExperience": req_years_str,
-                    "reason": f"Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')}",
-                    "confidence": eval_res.get("confidence"),
-                    "pocProfiles": []
-                }
-                
-                yield f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n"
-                
-                # Step 4: Find POC profiles (current employees, relevant department)
-                pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
-                
-                # Step 5: Assemble POC list
-                job_data["pocProfiles"] = build_poc_list(pocs)
-                    
-                jobs_found += 1
-                yield f"data: {json.dumps(job_data)}\n\n"
-
-            print(f"--- Discovery Complete: {jobs_found} matched, {pre_filtered} pre-filtered, {post_filtered} post-filtered ---")
+            print(f"--- Discovery Complete: {stats['jobs_found']} matched, {stats['pre_filtered']} pre-filtered, {stats['post_filtered']} post-filtered ---")
 
         except Exception as e:
             print(f"Generator Error: {e}")

@@ -117,6 +117,71 @@ def test_jd_location_prefilter():
     
     print("test_jd_location_prefilter passed.")
 
+async def test_concurrent_cap_overshoot():
+    """Test that concurrent evaluate_single_job calls don't exceed the jobs_found cap of 10."""
+    print("\n--- Testing Concurrent Job Cap (Overshoot Prevention) ---")
+    import main
+    import asyncio
+    import random
+    
+    # Mock the external calls to sleep slightly, forcing concurrency overlaps
+    async def mock_fetch_and_clean_jd(url):
+        await asyncio.sleep(random.uniform(0.01, 0.05))
+        return "Fake JD India Product Manager"
+        
+    def mock_extract_job_team_info(jd, profile):
+        return {"isValidRange": True, "required_years_extracted": "3", "companyName": "TestCo", "teamName": "Test"}
+        
+    def mock_find_poc_profiles(company, team):
+        return []
+        
+    # Store originals
+    orig_fetch = main.fetch_and_clean_jd
+    orig_extract = main.extract_job_team_info
+    orig_find_poc = main.find_poc_profiles
+    
+    # Apply mocks
+    main.fetch_and_clean_jd = mock_fetch_and_clean_jd
+    main.extract_job_team_info = mock_extract_job_team_info
+    main.find_poc_profiles = mock_find_poc_profiles
+    
+    try:
+        stats = {"jobs_found": 0, "pre_filtered": 0, "post_filtered": 0}
+        queue = asyncio.Queue()
+        sem = asyncio.Semaphore(3)
+        profile_dict = {"job_title": "Product Manager", "location": "India", "actual_years_exp": 3.0}
+        
+        # Fire 15 concurrent jobs (cap is 10)
+        tasks = []
+        for i in range(15):
+            tasks.append(asyncio.create_task(
+                main.evaluate_single_job(f"http://example.com/{i}", "Test", f"Title {i}", queue, sem, profile_dict, 3.0, stats)
+            ))
+            
+        await asyncio.gather(*tasks)
+        
+        print(f"Total jobs_found: {stats['jobs_found']}")
+        assert stats["jobs_found"] == 10, f"Overshoot! Expected 10, got {stats['jobs_found']}"
+        
+        # Check queue yields exactly 10 valid job payloads (plus some status updates)
+        valid_jobs = 0
+        while not queue.empty():
+            msg = queue.get_nowait()
+            import json
+            data = json.loads(msg.replace("data: ", "").strip())
+            if "pocProfiles" in data:  # Only final job payloads have this
+                valid_jobs += 1
+                
+        print(f"Total final payloads in queue: {valid_jobs}")
+        assert valid_jobs == 10, f"Expected 10 job payloads in queue, got {valid_jobs}"
+        print("test_concurrent_cap_overshoot passed.")
+        
+    finally:
+        # Restore originals
+        main.fetch_and_clean_jd = orig_fetch
+        main.extract_job_team_info = orig_extract
+        main.find_poc_profiles = orig_find_poc
+
 if __name__ == "__main__":
     # test_job_discovery_serper()
     # test_firecrawl_scraping()
@@ -124,3 +189,4 @@ if __name__ == "__main__":
     test_expired_jd_filter()
     test_location_mismatch_filter()
     test_jd_location_prefilter()
+    asyncio.run(test_concurrent_cap_overshoot())
