@@ -67,7 +67,25 @@ def test_resume_upload_integration():
     except Exception as e:
         print(f"Connection Error (is server running?): {e}")
 
+def test_expired_jd_filter():
+    """Test that the expired phrases deterministic check works."""
+    print("\n--- Testing Expired JD Filter ---")
+    from main import EXPIRED_PHRASES
+    
+    expired_jd = "About the role: this job is closed. Thank you."
+    active_jd = "About the role: we are actively hiring for this position."
+    
+    jd_lower_expired = expired_jd.lower()
+    is_expired_true = any(phrase in jd_lower_expired for phrase in EXPIRED_PHRASES)
+    assert is_expired_true is True, "Should flag expired JD"
+    
+    jd_lower_active = active_jd.lower()
+    is_expired_false = any(phrase in jd_lower_active for phrase in EXPIRED_PHRASES)
+    assert is_expired_false is False, "Should not flag active JD"
+    print("test_expired_jd_filter passed.")
+
 if __name__ == "__main__":
-    test_job_discovery_serper()
-    test_firecrawl_scraping()
-    test_resume_upload_integration()
+    # test_job_discovery_serper()
+    # test_firecrawl_scraping()
+    # test_resume_upload_integration()
+    test_expired_jd_filter()

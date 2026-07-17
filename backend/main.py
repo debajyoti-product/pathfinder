@@ -37,6 +37,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Tuning Constants ────────────────────────────────────────────────────────
+RECENCY_FILTER = "qdr:m"  # "qdr:w" for last week, "qdr:m" for last month
+
+EXPIRED_PHRASES = [
+    "position has been filled",
+    "no longer accepting applications",
+    "job posting expired",
+    "no longer available",
+    "this job is closed",
+    "this role has been closed"
+]
+
 # ── Seniority Pre-Filter ────────────────────────────────────────────────────
 # These title keywords indicate a role that requires significantly more
 # experience than a 1-3 year candidate should apply for.
@@ -221,7 +233,7 @@ async def collect_job_urls(job_title: str, location: str) -> list:
     
     def search_li():
         try:
-            res = serper_client.search(f'site:linkedin.com/jobs/view "{job_title}" "{location}"')
+            res = serper_client.search(f'site:linkedin.com/jobs/view "{job_title}" "{location}"', tbs=RECENCY_FILTER)
             return [
                 (i.get("link"), "LinkedIn", i.get("title", ""))
                 for i in res.get("organic", [])
@@ -233,7 +245,7 @@ async def collect_job_urls(job_title: str, location: str) -> list:
             
     def search_nk():
         try:
-            res = serper_client.search(f'site:naukri.com "{job_title}" "{location}"')
+            res = serper_client.search(f'site:naukri.com "{job_title}" "{location}"', tbs=RECENCY_FILTER)
             return [
                 (i.get("link"), "Naukri", i.get("title", ""))
                 for i in res.get("organic", [])
@@ -245,7 +257,7 @@ async def collect_job_urls(job_title: str, location: str) -> list:
 
     def search_boards():
         try:
-            res = serper_client.search(f'"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)')
+            res = serper_client.search(f'"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)', tbs=RECENCY_FILTER)
             urls = []
             for item in res.get("organic", []):
                 url = item.get("link")
@@ -348,6 +360,14 @@ async def discover_jobs(req: DiscoverRequest):
                 # Step 2: Fetch and clean the JD text
                 jd_clean = await fetch_and_clean_jd(url)
                 if not jd_clean:
+                    continue
+                    
+                # ── GATE 1: Deterministic Expired Posting Check (Python, no LLM) ──
+                jd_lower = jd_clean.lower()
+                is_expired = any(phrase in jd_lower for phrase in EXPIRED_PHRASES)
+                if is_expired:
+                    pre_filtered += 1
+                    print(f"PRE-FILTER REJECT [{source}]: Job appears to be expired — URL={url[:80]}")
                     continue
                     
                 # Step 3: Validate using Agent 3 (Qwen) — experience gate is highest priority
