@@ -2,7 +2,7 @@ import httpx
 import json
 import re
 import time
-from config import QWEN_API_KEY, GROQ_API_KEY
+from config import GROQ_API_KEY
 from services.usage_tracker import log_usage, is_over_limit
 
 LLAMA_MODELS = [
@@ -84,4 +84,4 @@ def _call_llama_json(prompt: str) -> dict:
     return _call_llm_json(prompt, LLAMA_MODELS, GROQ_API_KEY, json_mode=True)
 
 def _call_qwen_json(prompt: str) -> dict:
-    return _call_llm_json(prompt, QWEN_MODELS, QWEN_API_KEY, json_mode=True)
+    return _call_llm_json(prompt, QWEN_MODELS, GROQ_API_KEY, json_mode=True)

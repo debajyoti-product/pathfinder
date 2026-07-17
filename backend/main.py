@@ -37,6 +37,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    print("=== Pathfinder AI Suite Booting ===")
+    from config import GROQ_API_KEY, SERPER_API_KEY, FIRECRAWL_API_KEY
+    print(f"Llama 3.1 8B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
+    print(f"Qwen 32B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
+    print(f"Serper.dev: {'ENABLED' if SERPER_API_KEY else 'MISSING'}")
+    print(f"Firecrawl: {'ENABLED' if FIRECRAWL_API_KEY else 'MISSING'}")
+    if not GROQ_API_KEY:
+        print("CRITICAL: GROQ_API_KEY is missing. Pipeline LLM validation will fail.")
+    print("===================================")
+
 # ── Tuning Constants ────────────────────────────────────────────────────────
 RECENCY_FILTER = "qdr:m"  # "qdr:w" for last week, "qdr:m" for last month
 
