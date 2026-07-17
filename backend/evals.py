@@ -84,4 +84,4 @@ def _call_llama_json(prompt: str) -> dict:
     return _call_llm_json(prompt, LLAMA_MODELS, GROQ_API_KEY, json_mode=True)
 
 def _call_qwen_json(prompt: str) -> dict:
-    return _call_llm_json(prompt, QWEN_MODELS, QWEN_API_KEY, json_mode=False)
+    return _call_llm_json(prompt, QWEN_MODELS, QWEN_API_KEY, json_mode=True)

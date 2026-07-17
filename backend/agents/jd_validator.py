@@ -85,8 +85,9 @@ Extract the EXACT experience requirement from the JD. Then apply these rules:
 
     res = _call_qwen_json(prompt)
     if not res or "error" in res:
-        print(f"JD Validator Error: {res}")
-        res = {"isValidRange": False, "reasoning_trace": {"experience_gate": "Error", "location_gate": "Error", "remote_gate": "Error"}}
+        err_msg = res.get("error", "Unknown Error") if isinstance(res, dict) else "Unknown Error"
+        print(f"JD Validator Error: {err_msg}")
+        res = {"isValidRange": False, "error": err_msg, "reasoning_trace": {"experience_gate": f"API/Parse Error: {err_msg}", "location_gate": "Error", "remote_gate": "Error"}}
     if "isValidRange" not in res:
         res["isValidRange"] = False
     res.setdefault("required_years_extracted", "Unknown")

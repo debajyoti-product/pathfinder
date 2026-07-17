@@ -411,7 +411,10 @@ async def discover_jobs(req: DiscoverRequest):
                 
                 if eval_res.get("isValidRange") is not True:
                     trace = eval_res.get("reasoning_trace", {})
-                    print(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
+                    if "error" in eval_res:
+                        print(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
+                    else:
+                        print(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
                     continue
                 
                 # ── GATE POST: Deterministic Experience Post-Filter (Python) ────
