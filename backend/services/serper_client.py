@@ -9,7 +9,8 @@ class SerperClient:
 
     def _call_api(self, endpoint, payload):
         if is_over_limit("serper"):
-            raise Exception("Serper API limit reached (60% threshold). Process paused.")
+            print("Serper API limit reached. Gracefully degrading.")
+            return {"organic": [], "error": "Serper API limit reached. Process degraded.", "limited": True}
             
         headers = {
             'X-API-KEY': self.api_key,

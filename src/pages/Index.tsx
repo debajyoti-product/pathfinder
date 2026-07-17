@@ -98,16 +98,21 @@ const Index = () => {
       {/* Main */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full bg-muted/50 border border-border p-1 mb-8">
-            {tabs.map((tab) => (
+          <TabsList className="w-full bg-muted/50 border border-border p-1 mb-8 relative z-0 flex">
+            {/* The breadcrumb connecting line */}
+            <div className="absolute top-1/2 left-[12%] right-[12%] h-[2px] bg-border -translate-y-1/2 -z-10 hidden sm:block" />
+            
+            {tabs.map((tab, idx) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
                 disabled={!tabEnabled[tab.value]}
-                className="flex-1 gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-muted-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm text-muted-foreground disabled:opacity-30 disabled:cursor-not-allowed relative z-10 transition-all duration-300"
               >
-                <tab.icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{tab.label}</span>
+                <div className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-md ${activeTab === tab.value ? '' : 'bg-muted/80 backdrop-blur-sm'}`}>
+                  <tab.icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </div>
               </TabsTrigger>
             ))}
           </TabsList>

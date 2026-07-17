@@ -10,10 +10,18 @@ interface ResultsTabProps {
   onGenerate: (result: JobResult, pocName?: string, pocLinkedin?: string) => void;
 }
 
+interface JobStatus {
+  company: string;
+  status: string;
+  removing?: boolean;
+}
+
 const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
   const [results, setResults] = useState<JobResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("Discovering matched jobs...");
+  const [activeJobs, setActiveJobs] = useState<Record<string, JobStatus>>({});
+  const [stats, setStats] = useState<{searched: number, passed: number, rejected: number} | null>(null);
 
   const [feedback, setFeedback] = useState<Record<string, 'up' | 'down'>>({});
 
@@ -28,12 +36,46 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
 
       await streamDiscoverJobs(
         profile,
-        (job) => {
-          if (active) {
-            setResults((prev) => [...prev, job]);
-            // If we receive the first job, adjust status or turn off loading skeleton
+        (event) => {
+          if (!active) return;
+          
+          if (event.type === 'job') {
+            setResults((prev) => [...prev, event]);
+            setActiveJobs((prev) => {
+              const next = { ...prev };
+              delete next[event.id];
+              return next;
+            });
             setLoading(false);
-            setStatus("Discovering more matches...");
+          } else if (event.type === 'status') {
+            setActiveJobs((prev) => ({
+              ...prev,
+              [event.jobId]: { company: event.company, status: event.status }
+            }));
+            setLoading(false);
+          } else if (event.type === 'remove') {
+            setActiveJobs((prev) => {
+              if (!prev[event.jobId]) return prev;
+              return {
+                ...prev,
+                [event.jobId]: { ...prev[event.jobId], removing: true }
+              };
+            });
+            setTimeout(() => {
+              if (active) {
+                setActiveJobs((prev) => {
+                  const next = { ...prev };
+                  delete next[event.jobId];
+                  return next;
+                });
+              }
+            }, 500); // 500ms fade out
+          } else if (event.type === 'stats') {
+            setStats({
+              searched: event.searched,
+              passed: event.passed,
+              rejected: event.rejected
+            });
           }
         },
         () => {
@@ -60,63 +102,36 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
     setFeedback(prev => ({ ...prev, [profileId]: type }));
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Discovering Matches</h2>
-          <p className="text-muted-foreground text-sm mt-1">{status}</p>
-        </div>
-        {/* Skeleton cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-4 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-muted" />
-                <div className="space-y-2 flex-1">
-                  <div className="h-4 w-28 bg-muted rounded" />
-                  <div className="h-3 w-40 bg-muted/60 rounded" />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <div className="h-5 w-20 bg-muted/40 rounded-full" />
-                <div className="h-5 w-16 bg-muted/40 rounded-full" />
-              </div>
-              <div className="h-9 w-full bg-muted/30 rounded-lg" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Job Results for You</h2>
-          <p className="text-muted-foreground text-sm mt-1">
-            {results.length > 0
-              ? "Includes job links & potential referral profiles"
-              : "No matches found — try broadening your target roles or skills."}
-          </p>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">Job Results for You</h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              {results.length > 0
+                ? "Includes job links & potential referral profiles"
+                : "Scanning the market for perfect matches..."}
+            </p>
+          </div>
+          {results.length > 0 && (
+            <Badge variant="secondary" className="gap-1.5 bg-primary/10 text-primary border-primary/20">
+              <TrendingUp className="w-3 h-3" />
+              {results.length} match{results.length !== 1 ? "es" : ""}
+            </Badge>
+          )}
         </div>
-        {results.length > 0 && (
-          <Badge variant="secondary" className="gap-1.5 bg-primary/10 text-primary border-primary/20">
-            <TrendingUp className="w-3 h-3" />
-            {results.length} match{results.length !== 1 ? "es" : ""}
-          </Badge>
+        
+        {/* Funnel Stats */}
+        {stats && (
+          <div className="text-xs text-muted-foreground mt-2 bg-muted/30 px-3 py-2 rounded-md border border-border/50 inline-block w-fit">
+            Searched <strong>{stats.searched}</strong> postings &rarr; <strong>{stats.searched - stats.rejected}</strong> matched criteria &rarr; <strong>{stats.passed}</strong> passed quality checks
+          </div>
         )}
       </div>
 
-      {results.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center py-16 gap-3">
-          <Briefcase className="w-10 h-10 text-muted-foreground/40" />
-          <p className="text-muted-foreground text-sm">No matched jobs found for your profile.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {results.map((result) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {results.map((result) => (
             <div
               key={result.id}
               className="group rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all duration-200 p-5 flex flex-col gap-4"
@@ -154,16 +169,24 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                     </a>
                   )}
                   {result.confidence && (
-                    <Badge
-                      variant="secondary"
-                      className={`text-[10px] shrink-0 ${
-                        result.confidence >= 0.85
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                          : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                      }`}
-                    >
-                      {Math.round(result.confidence * 100)}% fit
-                    </Badge>
+                    <div className="relative group/badge flex items-center justify-center">
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] shrink-0 cursor-help ${
+                          result.confidence >= 0.85
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        }`}
+                      >
+                        {Math.round(result.confidence * 100)}% fit
+                      </Badge>
+                      {/* Reason Tooltip */}
+                      {result.reason && (
+                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-popover text-popover-foreground text-xs rounded shadow-lg border border-border opacity-0 group-hover/badge:opacity-100 pointer-events-none transition-opacity z-10 break-words text-center">
+                          {result.reason}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -244,6 +267,37 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
               </Button>
             </div>
           ))}
+          {/* Active Evaluation Skeletons */}
+          {Object.entries(activeJobs).map(([jobId, job]) => (
+            <div 
+              key={jobId} 
+              className={`rounded-xl border border-primary/20 bg-card/40 p-5 flex flex-col gap-4 shadow-[0_0_15px_rgba(var(--primary),0.1)] transition-all duration-500 ${
+                job.removing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground truncate">{job.company || "Unknown Company"}</h3>
+                  <p className="text-xs text-primary font-medium truncate animate-pulse mt-0.5">{job.status}</p>
+                </div>
+              </div>
+              <div className="space-y-2 mt-2">
+                <div className="h-3 w-3/4 bg-muted/60 rounded" />
+                <div className="h-3 w-1/2 bg-muted/60 rounded" />
+              </div>
+              <div className="h-8 w-full bg-muted/30 rounded-lg mt-auto" />
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {results.length === 0 && Object.keys(activeJobs).length === 0 && !loading && (
+        <div className="rounded-xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center py-16 gap-3">
+          <Briefcase className="w-10 h-10 text-muted-foreground/40" />
+          <p className="text-muted-foreground text-sm">No matched jobs found for your profile.</p>
         </div>
       )}
     </div>

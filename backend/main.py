@@ -434,13 +434,15 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             if is_title_too_senior(check_text, candidate_years):
                 stats["pre_filtered"] += 1
                 print(f"PRE-FILTER REJECT [{source}]: '{serper_title[:60]}' — too senior for {candidate_years}yr candidate")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
-            await queue.put(f"data: {json.dumps({'status': f'Evaluating role from {source}...'})}\n\n")
+            await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': f'Evaluating role from {source}...'})}\n\n")
             
             # Step 2: Fetch and clean the JD text
             jd_clean = await fetch_and_clean_jd(url)
             if not jd_clean:
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
             # ── GATE 1: Deterministic Expired Posting Check (Python, no LLM) ──
@@ -449,14 +451,17 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             if is_expired:
                 stats["pre_filtered"] += 1
                 print(f"PRE-FILTER REJECT [{source}]: Job appears to be expired — URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
             # ── GATE 2: Deterministic Location Pre-Filter (Python, no LLM) ────
             if is_location_mismatch_pretext(jd_lower, location):
                 stats["pre_filtered"] += 1
                 print(f"PRE-FILTER REJECT (Location) [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
+            await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': 'Analyzing fit with Qwen...'})}\n\n")
             # Step 3: Validate using Agent 3 (Qwen)
             eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile_dict)
             
@@ -466,6 +471,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                     print(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
                 else:
                     print(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
             # ── GATE POST: Deterministic Experience Post-Filter (Python) ────
@@ -473,6 +479,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             if is_experience_mismatch(req_years_str, candidate_years):
                 stats["post_filtered"] += 1
                 print(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
             # ── GATE POST 2: Deterministic Location Post-Filter (Python) ────
@@ -480,6 +487,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             if is_location_mismatch_postllm(detected_loc, profile_dict.get("location", "India")):
                 stats["post_filtered"] += 1
                 print(f"POST-FILTER REJECT (Location) [{source}]: Location mismatch (Required: {detected_loc}, User: {profile_dict.get('location', 'India')}) — URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
             # ── All gates passed — build the job card ────────────────────────
@@ -487,6 +495,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             team_name = eval_res.get("teamName")
             
             job_data = {
+                "type": "job",
                 "id": f"{hash(url)}",
                 "company": company_name,
                 "jobTitle": job_title,
@@ -499,7 +508,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 "pocProfiles": []
             }
             
-            await queue.put(f"data: {json.dumps({'status': f'Finding contacts at {company_name}...'})}\n\n")
+            await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': company_name, 'status': f'Finding contacts at {company_name}...'})}\n\n")
             
             # Step 4: Find POC profiles (current employees, relevant department)
             pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
@@ -511,6 +520,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             # We increment and check before putting the result into the queue, inside one synchronous section.
             if stats["jobs_found"] >= 10:
                 print(f"OVERSHOOT AVOIDED [{source}]: Discarding valid job because cap (10) was hit concurrently — URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
             stats["jobs_found"] += 1
@@ -534,8 +544,6 @@ async def discover_jobs(req: DiscoverRequest):
             print(f"--- Discovery Started ---")
             print(f"Title: {job_title}, Location: {location}, Candidate Years: {candidate_years}")
             print(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
-            
-            yield f"data: {json.dumps({'status': 'Searching job boards concurrently...'})}\n\n"
             
             # Step 1: Collect URLs from LinkedIn, Naukri, and job boards
             urls = await collect_job_urls(job_title, location)
@@ -580,6 +588,7 @@ async def discover_jobs(req: DiscoverRequest):
                 # background and their cost/latency is already spent. This is an accepted tradeoff.
                 print("Cancelling pending/in-flight asyncio tasks. Note: this does not stop in-flight asyncio.to_thread calls to Firecrawl/Jina/Serper; those API calls will complete in the background and their cost is already spent.")
                 
+            yield f"data: {json.dumps({'type': 'stats', 'searched': len(urls), 'matched': stats['jobs_found'], 'passed': stats['jobs_found'], 'rejected': stats['pre_filtered'] + stats['post_filtered']})}\n\n"
             print(f"--- Discovery Complete: {stats['jobs_found']} matched, {stats['pre_filtered']} pre-filtered, {stats['post_filtered']} post-filtered ---")
 
         except Exception as e:

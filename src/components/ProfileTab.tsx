@@ -110,33 +110,39 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Identified Roles</h3>
             <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Toggle to adjust total experience</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {profile.roles.map((role, idx) => (
-              <div 
-                key={idx} 
-                className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
-                  role.active 
-                    ? 'bg-secondary/50 border-primary/20 shadow-sm' 
-                    : 'bg-muted/30 border-transparent opacity-60'
+              <button
+                key={idx}
+                onClick={() => toggleRole(idx)}
+                className={`group relative flex flex-col items-start p-3 rounded-lg border transition-all duration-200 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  role.active
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-card text-foreground border-border hover:border-primary/50'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Switch 
-                    checked={role.active} 
-                    onCheckedChange={() => toggleRole(idx)}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-foreground leading-tight">{role.title}</span>
-                    <span className="text-xs text-muted-foreground">{role.yearsExp} years</span>
+                <div className="flex items-start justify-between w-full">
+                  <span className={`text-sm font-medium leading-tight pr-4 ${role.active ? 'text-primary-foreground' : 'text-foreground'}`}>
+                    {role.title}
+                  </span>
+                  <div
+                    onClick={(e) => { e.stopPropagation(); removeDetailedRole(idx); }}
+                    className={`absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${
+                      role.active ? 'hover:bg-primary-foreground/20 text-primary-foreground' : 'hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    <X className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <button 
-                  onClick={() => removeDetailedRole(idx)} 
-                  className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                >
-                   <X className="w-4 h-4" />
-                </button>
-              </div>
+                <span className={`text-xs mt-1 font-medium ${role.active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                  {role.yearsExp} {role.yearsExp === 1 ? 'year' : 'years'} exp
+                </span>
+                {role.active && (
+                  <div className="absolute bottom-2 right-2">
+                    <Check className="w-4 h-4 text-primary-foreground/80" />
+                  </div>
+                )}
+              </button>
             ))}
           </div>
         </div>
@@ -165,33 +171,63 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
         </div>
       </div>
 
-      {/* Core Skills (Full Width Below) */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Skills</h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {profile.coreSkills.map((skill) => (
-            <Badge key={skill} variant="secondary" className="gap-1.5 pr-1.5 bg-secondary text-secondary-foreground py-1 px-3 rounded-full">
-              {skill}
-              <button onClick={() => removeSkill(skill)} className="hover:text-destructive transition-colors">
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          ))}
+      {/* Skills Hierarchy (Full Width Below) */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-6">
+        {(() => {
+          // Simple heuristic to split skills
+          const isTool = (s: string) => /api|react|node|python|java|aws|gcp|azure|sql|git|docker|kubernetes|jira|branch|gupshup|dashboard|postman|figma/i.test(s);
+          const competencies = profile.coreSkills.filter(s => !isTool(s));
+          const tools = profile.coreSkills.filter(s => isTool(s));
           
-          <div className="flex items-center gap-2 bg-secondary/50 rounded-full pl-3 pr-1 py-1 border border-border/50">
-            <input
-              type="text"
-              value={newSkill}
-              onChange={(e) => setNewSkill(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addSkill()}
-              placeholder="Add skill..."
-              className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-24"
-            />
-            <Button size="icon" variant="default" onClick={addSkill} className="h-6 w-6 rounded-full bg-primary text-primary-foreground">
-              <Plus className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
+          return (
+            <>
+              {/* Core Competencies */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Competencies</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  {competencies.map((skill) => (
+                    <Badge key={skill} className="gap-1.5 pr-1.5 bg-primary/10 text-primary border-primary/20 py-1.5 px-3.5 rounded-full text-sm font-medium">
+                      {skill}
+                      <button onClick={() => removeSkill(skill)} className="hover:text-primary/70 transition-colors bg-primary/10 rounded-full p-0.5">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {competencies.length === 0 && <span className="text-sm text-muted-foreground italic">None detected</span>}
+                </div>
+              </div>
+
+              {/* Tools & Specifics */}
+              <div className="space-y-3 pt-4 border-t border-border/50">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Tools & Technologies</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  {tools.map((skill) => (
+                    <Badge key={skill} variant="outline" className="gap-1.5 pr-1.5 border-border bg-muted/30 text-muted-foreground py-1 px-3 rounded-full font-normal">
+                      {skill}
+                      <button onClick={() => removeSkill(skill)} className="hover:text-destructive transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  
+                  <div className="flex items-center gap-2 bg-secondary/50 rounded-full pl-3 pr-1 py-1 border border-border/50">
+                    <input
+                      type="text"
+                      value={newSkill}
+                      onChange={(e) => setNewSkill(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addSkill()}
+                      placeholder="Add skill..."
+                      className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-24"
+                    />
+                    <Button size="icon" variant="default" onClick={addSkill} className="h-6 w-6 rounded-full bg-primary text-primary-foreground">
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Remote Toggle + Actions */}

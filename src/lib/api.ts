@@ -61,7 +61,7 @@ export async function parseResume(file: File): Promise<ProfileData> {
 
 export async function streamDiscoverJobs(
   profile: ProfileData, 
-  onJobFound: (job: JobResult) => void, 
+  onEvent: (event: any) => void, 
   onComplete: () => void,
   onError: (err: string) => void
 ) {
@@ -117,8 +117,8 @@ export async function streamDiscoverJobs(
             const data = JSON.parse(dataStr);
             if (data.error) {
               onError(data.error);
-            } else if (data && typeof data === 'object' && (data.id || data.company)) {
-              onJobFound(data as JobResult);
+            } else if (data) {
+              onEvent(data);
             }
           } catch (e) {
             console.error("SSE parse error", e);

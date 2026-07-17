@@ -17,6 +17,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
   const [research, setResearch] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [mode, setMode] = useState<'preview' | 'edit'>('preview');
 
   const fetchDraft = async () => {
     if (!profile) return;
@@ -54,6 +55,28 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
   };
 
   const wordCount = draft.trim().split(/\s+/).filter(Boolean).length;
+
+  const renderRichText = (text: string) => {
+    // Replace markdown links [text](url) or bare URLs with styled anchors
+    // Also handling potential bare URLs that are not in markdown format
+    let html = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" class="text-primary font-medium hover:underline">$1</a>');
+    
+    // For bare URLs, try to replace them if they aren't already in an anchor tag
+    // This is a simplified regex, assuming the LLM might sometimes just spit out the URL
+    html = html.replace(/(^|[^"'])(https?:\/\/[^\s]+)/g, (match, prefix, url) => {
+       if (prefix.includes('<a href=')) return match; // already an anchor
+       return `${prefix}<a href="${url}" target="_blank" class="text-primary font-medium hover:underline">Link</a>`;
+    });
+    
+    html = html.replace(/\n/g, '<br />');
+    
+    return (
+      <div 
+        dangerouslySetInnerHTML={{ __html: html }} 
+        className="flex-1 min-h-[350px] bg-muted/30 border border-border rounded-md p-4 text-sm leading-relaxed text-foreground overflow-y-auto font-sans" 
+      />
+    );
+  };
 
   if (loading) {
     return (
@@ -152,7 +175,21 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
         <div className="rounded-xl border border-border bg-card p-6 space-y-4 flex flex-col">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Email Draft</h3>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <div className="flex bg-muted rounded-md p-0.5 border border-border mr-2">
+                 <button 
+                   onClick={() => setMode('preview')} 
+                   className={`px-3 py-1 text-xs rounded-sm font-medium transition-colors ${mode === 'preview' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                 >
+                   Preview
+                 </button>
+                 <button 
+                   onClick={() => setMode('edit')} 
+                   className={`px-3 py-1 text-xs rounded-sm font-medium transition-colors ${mode === 'edit' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                 >
+                   Raw Edit
+                 </button>
+              </div>
               <Button variant="ghost" size="sm" onClick={handleRegenerate} className="gap-1.5 text-muted-foreground hover:text-foreground h-7 text-xs">
                 <RefreshCw className="w-3 h-3" />
                 Regenerate
@@ -163,11 +200,17 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
               </Button>
             </div>
           </div>
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="flex-1 min-h-[350px] resize-none bg-muted border-border text-foreground font-mono text-sm leading-relaxed"
-          />
+          
+          {mode === 'edit' ? (
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="flex-1 min-h-[350px] resize-none bg-muted border-border text-foreground font-mono text-sm leading-relaxed"
+            />
+          ) : (
+            renderRichText(draft)
+          )}
+          
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{wordCount} words</span>
             <Button 
