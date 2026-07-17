@@ -149,11 +149,12 @@ class ProfileData(BaseModel):
     location: Optional[str] = None
     remote_only: Optional[bool] = False
 
-def is_location_mismatch(detected_location: str, user_location: str) -> bool:
+def is_location_mismatch_postllm(detected_location: str, user_location: str) -> bool:
     """
-    Deterministic post-filter for location.
+    Deterministic post-filter for location (runs AFTER LLM validation).
     Matches extracted location against user location via substring and alias tables.
     Returns True if it's a definite mismatch.
+    (Note: See is_location_mismatch_pretext for the pre-LLM raw text version).
     """
     if not detected_location:
         return False
@@ -185,11 +186,12 @@ def is_location_mismatch(detected_location: str, user_location: str) -> bool:
     # If no substring match and no alias match, it's a mismatch
     return True
 
-def is_jd_location_mismatch(jd_lower: str, user_location: str) -> bool:
+def is_location_mismatch_pretext(jd_lower: str, user_location: str) -> bool:
     """
-    Very loose deterministic pre-filter for JD text.
+    Very loose deterministic pre-filter for JD text (runs BEFORE LLM validation).
     If the JD text doesn't contain the user's location, any aliases, or the word 'remote',
     we can confidently reject it before calling the LLM.
+    (Note: See is_location_mismatch_postllm for the post-LLM extraction version).
     """
     if not jd_lower or not user_location:
         return False
@@ -450,9 +452,9 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 return
                 
             # ── GATE 2: Deterministic Location Pre-Filter (Python, no LLM) ────
-            if is_jd_location_mismatch(jd_lower, location):
+            if is_location_mismatch_pretext(jd_lower, location):
                 stats["pre_filtered"] += 1
-                print(f"PRE-FILTER REJECT [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
+                print(f"PRE-FILTER REJECT (Location) [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
                 return
                 
             # Step 3: Validate using Agent 3 (Qwen)
@@ -475,9 +477,9 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 
             # ── GATE POST 2: Deterministic Location Post-Filter (Python) ────
             detected_loc = eval_res.get("detected_location", "Unknown")
-            if is_location_mismatch(detected_loc, profile_dict.get("location", "India")):
+            if is_location_mismatch_postllm(detected_loc, profile_dict.get("location", "India")):
                 stats["post_filtered"] += 1
-                print(f"POST-FILTER REJECT [{source}]: Location mismatch (Required: {detected_loc}, User: {profile_dict.get('location', 'India')}) — URL={url[:80]}")
+                print(f"POST-FILTER REJECT (Location) [{source}]: Location mismatch (Required: {detected_loc}, User: {profile_dict.get('location', 'India')}) — URL={url[:80]}")
                 return
                 
             # ── All gates passed — build the job card ────────────────────────
@@ -573,6 +575,9 @@ async def discover_jobs(req: DiscoverRequest):
                     if not t.done():
                         t.cancel()
                 # Explicitly log the tradeoff: in-flight HTTP calls aren't stopped
+                # NOTE: Cancelling the asyncio task does not stop in-flight asyncio.to_thread 
+                # calls to Firecrawl/Jina/Serper. Those API calls will complete in the 
+                # background and their cost/latency is already spent. This is an accepted tradeoff.
                 print("Cancelling pending/in-flight asyncio tasks. Note: this does not stop in-flight asyncio.to_thread calls to Firecrawl/Jina/Serper; those API calls will complete in the background and their cost is already spent.")
                 
             print(f"--- Discovery Complete: {stats['jobs_found']} matched, {stats['pre_filtered']} pre-filtered, {stats['post_filtered']} post-filtered ---")

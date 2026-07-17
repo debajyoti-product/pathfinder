@@ -19,7 +19,7 @@ QWEN_MODELS = [
 
 def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = True) -> dict:
     if is_over_limit("groq"):
-        return {"error": "Groq API limit reached (60% threshold). Process paused."}
+        return {"error": "Groq API limit reached.", "limited": True}
 
     headers = {
         "Authorization": f"Bearer {api_key}",

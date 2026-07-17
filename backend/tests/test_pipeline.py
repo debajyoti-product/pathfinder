@@ -87,33 +87,33 @@ def test_expired_jd_filter():
 def test_location_mismatch_filter():
     """Test deterministic location matching logic."""
     print("\n--- Testing Location Mismatch Filter ---")
-    from main import is_location_mismatch
+    from main import is_location_mismatch_postllm
     
     # Matching cases (should return False)
-    assert is_location_mismatch("Bangalore, India", "India") is False
-    assert is_location_mismatch("India", "Bangalore") is False
-    assert is_location_mismatch("New York, NY", "New York") is False
-    assert is_location_mismatch("Pune", "India") is False
-    assert is_location_mismatch("Remote", "India") is False
+    assert is_location_mismatch_postllm("Bangalore, India", "India") is False
+    assert is_location_mismatch_postllm("India", "Bangalore") is False
+    assert is_location_mismatch_postllm("New York, NY", "New York") is False
+    assert is_location_mismatch_postllm("Pune", "India") is False
+    assert is_location_mismatch_postllm("Remote", "India") is False
     
     # Mismatch cases (should return True)
-    assert is_location_mismatch("London, UK", "India") is True
-    assert is_location_mismatch("New York, USA", "India") is True
+    assert is_location_mismatch_postllm("London, UK", "India") is True
+    assert is_location_mismatch_postllm("New York, USA", "India") is True
     
     print("test_location_mismatch_filter passed.")
 
 def test_jd_location_prefilter():
     """Test the loose deterministic JD text location filter."""
     print("\n--- Testing JD Location Pre-filter ---")
-    from main import is_jd_location_mismatch
+    from main import is_location_mismatch_pretext
     
     jd_remote = "We are a fully remote company looking for great people."
     jd_india = "Our office is located in Bengaluru, but we have people all over."
     jd_us = "Must be based in New York or San Francisco."
     
-    assert is_jd_location_mismatch(jd_remote.lower(), "India") is False # Remote passes everything
-    assert is_jd_location_mismatch(jd_india.lower(), "India") is False # Bengaluru -> India match
-    assert is_jd_location_mismatch(jd_us.lower(), "India") is True # No mention of India/aliases/remote
+    assert is_location_mismatch_pretext(jd_remote.lower(), "India") is False # Remote passes everything
+    assert is_location_mismatch_pretext(jd_india.lower(), "India") is False # Bengaluru -> India match
+    assert is_location_mismatch_pretext(jd_us.lower(), "India") is True # No mention of India/aliases/remote
     
     print("test_jd_location_prefilter passed.")
 
@@ -182,6 +182,68 @@ async def test_concurrent_cap_overshoot():
         main.extract_job_team_info = orig_extract
         main.find_poc_profiles = orig_find_poc
 
+def test_qwen_json_parsing():
+    """Test that _call_qwen_json correctly parses JSON and surfaces malformed responses as errors."""
+    print("\n--- Testing Qwen JSON Parsing ---")
+    import evals
+    from unittest.mock import patch
+    
+    class MockResponse:
+        def __init__(self, json_data, status_code=200):
+            self._json_data = json_data
+            self.status_code = status_code
+        def json(self):
+            return self._json_data
+        def raise_for_status(self):
+            pass
+
+    # 1. Well-formed JSON
+    valid_payload = {"choices": [{"message": {"content": "```json\n{\"isValidRange\": true}\n```"}}]}
+    with patch("httpx.Client.post", return_value=MockResponse(valid_payload)):
+        # Temporarily disable limit check to force the HTTP call
+        with patch("evals.is_over_limit", return_value=False):
+            res = evals._call_qwen_json("test")
+            assert res.get("isValidRange") is True
+
+    # 2. Malformed JSON (simulating LLM hallucinating non-JSON text)
+    malformed_payload = {"choices": [{"message": {"content": "I am an AI. I think it is valid."}}]}
+    with patch("httpx.Client.post", return_value=MockResponse(malformed_payload)):
+        with patch("evals.is_over_limit", return_value=False):
+            res = evals._call_qwen_json("test")
+            assert "error" in res
+            assert "Failed to parse JSON" in res["error"]
+        
+    print("test_qwen_json_parsing passed.")
+
+def test_poc_referral_filtering():
+    """Test that find_poc_profiles filters ex-employees via MetadataParser."""
+    print("\n--- Testing POC Referral Filtering ---")
+    import main
+    from unittest.mock import patch
+    
+    mock_serper_res = {
+        "organic": [
+            {"title": "Jane Doe - Ex-Product Manager - Company", "link": "link1", "snippet": "Worked at Company from 2018 to 2021."},
+            {"title": "John Smith - Product Manager - Company", "link": "link2", "snippet": "Current PM at Company."}
+        ]
+    }
+    
+    def mock_call_llm_json(*args, **kwargs):
+        return {
+            "profiles": [
+                {"name": "Jane Doe", "current_role": "Ex-Product Manager", "is_current_employee": False},
+                {"name": "John Smith", "current_role": "Product Manager", "is_current_employee": True}
+            ]
+        }
+        
+    with patch("main.serper_client.search_linkedin_pocs", return_value=mock_serper_res):
+        with patch("agents.metadata_parser._call_llm_json", side_effect=mock_call_llm_json):
+            pocs = main.find_poc_profiles("Company", "Product")
+            assert len(pocs) == 1
+            assert pocs[0]["name"] == "John Smith"
+            
+    print("test_poc_referral_filtering passed.")
+
 if __name__ == "__main__":
     # test_job_discovery_serper()
     # test_firecrawl_scraping()
@@ -190,3 +252,5 @@ if __name__ == "__main__":
     test_location_mismatch_filter()
     test_jd_location_prefilter()
     asyncio.run(test_concurrent_cap_overshoot())
+    test_qwen_json_parsing()
+    test_poc_referral_filtering()

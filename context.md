@@ -192,6 +192,7 @@ Output: { email: "drafted text", news: [...], critique_notes: "..." }
 | **API throttling** | Usage tracker in `backend/services/usage_tracker.py` warns at 60% of free-tier limits. |
 | **ALERTS_FILE path** | Hardcoded path in `usage_tracker.py` needs fixing to a relative path. |
 | **Streaming Order** | Job results stream in **completion order**, not URL-collection order. This is a deliberate tradeoff of 3-way concurrency to improve latency. |
+| **Test Coverage Gaps** | There is currently no unit test coverage for the P0-9 boot assertion, P1-3 news caching, or P1-5 noise stripping. |
 
 ---
 

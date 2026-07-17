@@ -69,6 +69,9 @@ Evaluate your draft against these checkboxes:
 }}"""
 
         result = _call_llama_json(prompt)
+        if "error" in result:
+            return {"subject": "Error generating draft", "body": f"API Error: {result['error']}", "critique_notes": ""}
+            
         email_text = result.get("body", result.get("email", ""))
 
         # Auto-retry once if the self-critique gate was ignored
