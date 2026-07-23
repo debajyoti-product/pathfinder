@@ -195,7 +195,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
               <div className="space-y-3 pt-3 border-t border-border/50">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Discovered Profiles</h4>
                 {(!result.pocProfiles || result.pocProfiles.length === 0) ? (
-                   <p className="text-xs text-muted-foreground italic">No specific profiles found.</p>
+                   <p className="text-xs text-muted-foreground italic">Unable to find Linkedin POC.</p>
                 ) : (
                    <div className="grid gap-2">
                      {result.pocProfiles.map((poc, idx) => {
