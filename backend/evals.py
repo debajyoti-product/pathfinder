@@ -14,7 +14,7 @@ LLAMA_70B_MODELS = [
 ]
 
 QWEN_MODELS = [
-    "qwen/qwen3-32b"
+    "qwen/qwen3.6-27b"
 ]
 
 def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = True) -> dict:
