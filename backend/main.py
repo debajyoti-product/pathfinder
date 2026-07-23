@@ -68,7 +68,9 @@ EXPIRED_PHRASES = [
     "job posting expired",
     "no longer available",
     "this job is closed",
-    "this role has been closed"
+    "this role has been closed",
+    "page you are looking for doesn't exist",
+    "page you are looking for does not exist"
 ]
 
 # ── Seniority Pre-Filter ────────────────────────────────────────────────────
