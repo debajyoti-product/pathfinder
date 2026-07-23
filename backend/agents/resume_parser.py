@@ -77,6 +77,16 @@ Resume:
             except:
                 return datetime.datetime.now()
 
+        def normalize_role_title(title: str) -> str:
+            """Merge seniority variants into the base role for experience aggregation."""
+            prefixes = ['Associate ', 'Junior ', 'Jr. ', 'Jr ', 'Senior ', 'Sr. ', 'Sr ', 'Lead ', 'Staff ', 'Principal ']
+            normalized = title.strip()
+            for prefix in prefixes:
+                if normalized.lower().startswith(prefix.lower()):
+                    normalized = normalized[len(prefix):].strip()
+                    break
+            return normalized or title
+
         summary_map = {}
         for role in result.get("roles", []):
             start = parse_date(role.get("start_date"))
@@ -89,10 +99,11 @@ Resume:
                 years = 1 / 12.0
 
             title = role.get("title", "Unknown Role")
-            if title in summary_map:
-                summary_map[title] += years
+            base_title = normalize_role_title(title)
+            if base_title in summary_map:
+                summary_map[base_title] += years
             else:
-                summary_map[title] = years
+                summary_map[base_title] = years
 
         new_summary = []
         for title, y in summary_map.items():

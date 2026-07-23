@@ -244,6 +244,85 @@ def test_poc_referral_filtering():
             
     print("test_poc_referral_filtering passed.")
 
+def test_experience_matching_rules():
+    """Test the new experience matching rules for X+ and X-Y formats."""
+    print("\n--- Testing Experience Matching Rules ---")
+    from main import is_experience_mismatch
+    
+    # === Rule 1: X+ format (candidate < 5yr) -> X must be <= candidate_years ===
+    # 2yr candidate
+    assert is_experience_mismatch("2+ years", 2) is False   # 2 <= 2
+    assert is_experience_mismatch("1+ years", 2) is False   # 1 <= 2
+    assert is_experience_mismatch("3+ years", 2) is True    # 3 > 2
+    
+    # === Rule 1: X+ format (candidate >= 5yr) -> X must be <= candidate_years - 1 ===
+    # 7yr candidate
+    assert is_experience_mismatch("6+ years", 7) is False   # 6 <= 6 (7-1)
+    assert is_experience_mismatch("7+ years", 7) is True    # 7 > 6 (7-1)
+    assert is_experience_mismatch("5+ years", 7) is False   # 5 <= 6 (7-1)
+    
+    # === Rule 2: X-Y range -> X must be <= candidate_years ===
+    # 5yr candidate
+    assert is_experience_mismatch("3-5 years", 5) is False  # 3 <= 5
+    assert is_experience_mismatch("5-7 years", 5) is False  # 5 <= 5
+    assert is_experience_mismatch("6-8 years", 5) is True   # 6 > 5
+    assert is_experience_mismatch("2-4 years", 2) is False  # 2 <= 2
+    assert is_experience_mismatch("3-5 years", 2) is True   # 3 > 2
+    
+    # Edge cases
+    assert is_experience_mismatch("Unknown", 5) is False
+    assert is_experience_mismatch("Not specified", 3) is False
+    assert is_experience_mismatch("", 3) is False
+    
+    print("test_experience_matching_rules passed.")
+
+def test_smart_round_years():
+    """Test the smart rounding: >= 0.3 rounds up, < 0.3 rounds down."""
+    print("\n--- Testing Smart Round Years ---")
+    from main import smart_round_years
+    
+    assert smart_round_years(1.67) == 2.0   # 0.67 >= 0.3 -> ceil
+    assert smart_round_years(4.56) == 5.0   # 0.56 >= 0.3 -> ceil
+    assert smart_round_years(1.2) == 1.0    # 0.2 < 0.3 -> floor
+    assert smart_round_years(6.2) == 6.0    # 0.2 < 0.3 -> floor
+    assert smart_round_years(1.3) == 2.0    # 0.3 >= 0.3 -> ceil
+    assert smart_round_years(3.0) == 3.0    # exact
+    assert smart_round_years(0.29) == 0.0   # 0.29 < 0.3 -> floor
+    
+    print("test_smart_round_years passed.")
+
+def test_role_title_normalization():
+    """Test that resume parser merges seniority variants into base roles."""
+    print("\n--- Testing Role Title Normalization ---")
+    from agents.resume_parser import ResumeParser
+    
+    parser = ResumeParser()
+    # Simulate the normalize_role_title function behavior
+    # We can't call it directly since it's nested, but we can verify the output
+    # by checking that the parser merges roles correctly
+    
+    # Simulate a parsed result with APM + PM roles
+    from unittest.mock import patch
+    mock_llm_result = {
+        "roles": [
+            {"title": "Product Manager", "start_date": "04/2025", "end_date": "09/2025"},
+            {"title": "Associate Product Manager", "start_date": "09/2023", "end_date": "05/2024"},
+            {"title": "Associate Product Manager", "start_date": "04/2022", "end_date": "11/2022"},
+        ],
+        "skills": ["Product Management"],
+        "industry": "Tech"
+    }
+    
+    with patch("agents.resume_parser._call_llama_json", return_value=mock_llm_result):
+        result = parser.parse("dummy text")
+        # All three roles should be merged under "Product Manager"
+        assert len(result["experience_summary"]) == 1, f"Expected 1 merged role, got {len(result['experience_summary'])}"
+        merged = result["experience_summary"][0]
+        assert merged["role_type"] == "Product Manager"
+        assert merged["total_years_numeric"] > 1.5  # 0.42 + 0.67 + 0.58 = 1.67
+        
+    print("test_role_title_normalization passed.")
+
 if __name__ == "__main__":
     # test_job_discovery_serper()
     # test_firecrawl_scraping()
@@ -254,3 +333,6 @@ if __name__ == "__main__":
     asyncio.run(test_concurrent_cap_overshoot())
     test_qwen_json_parsing()
     test_poc_referral_filtering()
+    test_experience_matching_rules()
+    test_smart_round_years()
+    test_role_title_normalization()

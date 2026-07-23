@@ -1,5 +1,12 @@
 import { ProfileData, JobResult, CompanyResearch } from "./mockData";
 
+/** Round experience years: if decimal >= 0.3, round up; otherwise round down.
+ *  e.g. 1.67 -> 2, 4.56 -> 5, 1.2 -> 1, 6.2 -> 6 */
+function smartRoundYears(value: number): number {
+  const decimal = value - Math.floor(value);
+  return decimal >= 0.3 ? Math.ceil(value) : Math.floor(value);
+}
+
 export async function parseResume(file: File): Promise<ProfileData> {
   const formData = new FormData();
   formData.append("file", file);
@@ -68,7 +75,7 @@ export async function streamDiscoverJobs(
   const payload = {
     job_title: profile.targetRoles[0] || "Product Manager",
     skills: profile.coreSkills,
-    actual_years_exp: Math.round(profile.actualYears || 0),
+    actual_years_exp: smartRoundYears(profile.actualYears || 0),
     search_range: [profile.experienceRange],
     industry: profile.industry || "General",
     location: profile.location || "India",
@@ -158,7 +165,7 @@ export async function draftEmail(
   const payload = {
     job_title: profile.targetRoles[0] || "Product Manager",
     skills: profile.coreSkills,
-    actual_years_exp: Math.round(profile.actualYears || 0),
+    actual_years_exp: smartRoundYears(profile.actualYears || 0),
     search_range: [profile.experienceRange],
     industry: profile.industry || "General",
     location: profile.location || "India",

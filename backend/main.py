@@ -52,6 +52,16 @@ async def startup_event():
 # ── Tuning Constants ────────────────────────────────────────────────────────
 RECENCY_FILTER = "qdr:m"  # "qdr:w" for last week, "qdr:m" for last month
 
+def smart_round_years(value: float) -> float:
+    """Round experience years: if decimal >= 0.3, round up; otherwise round down.
+    e.g. 1.67 -> 2, 4.56 -> 5, 1.2 -> 1, 6.2 -> 6
+    """
+    import math
+    decimal_part = value - int(value)
+    if decimal_part >= 0.3:
+        return float(math.ceil(value))
+    return float(math.floor(value))
+
 EXPIRED_PHRASES = [
     "position has been filled",
     "no longer accepting applications",
@@ -71,7 +81,7 @@ SENIOR_TITLE_KEYWORDS = [
     "head of", "head,", "head ", "vp ", "vp,", "vice president",
     "avp", "a]vp", "group product", "group pm", "chief",
     "fellow", "distinguished", "architect", "lead product",
-    "lead pm", "specialist",  # specialist often implies 5+ yrs domain expertise
+    "lead pm",
 ]
 
 def is_title_too_senior(title: str, candidate_years: float) -> bool:
@@ -112,20 +122,39 @@ def parse_years_from_requirement(req_str: str) -> Optional[float]:
     return None
 
 def is_experience_mismatch(required_years_str: str, candidate_years: float) -> bool:
-    """Deterministic post-filter: reject if JD's required years far exceed candidate's.
+    """Deterministic post-filter: reject if JD's required years exceed candidate's.
     
-    This runs AFTER the LLM call as a safety net.
-    Rejects if the JD's minimum requirement is > candidate_years + 1.
+    Rules:
+    - X+ format: X must be <= candidate_years (for <5yr candidates) or <= candidate_years - 1 (for 5+yr)
+    - X-Y range: X (lower bound) must be <= candidate_years
     """
-    min_required = parse_years_from_requirement(required_years_str)
-    if min_required is None:
-        return False  # Can't parse — let the LLM decision stand
+    if not required_years_str or required_years_str in ("Unknown", "Not specified"):
+        return False
+    req_lower = required_years_str.lower()
     
-    # Reject if JD asks for significantly more than candidate has
-    # A 2-year candidate should NOT see jobs asking for 4+ years
-    if min_required > candidate_years + 1.5:
-        return True
-    return False
+    # "5-8 years" range format → check lower bound X <= candidate_years
+    match = re.search(r'(\d+)\s*[\-–]\s*(\d+)', req_lower)
+    if match:
+        lower_bound = float(match.group(1))
+        return lower_bound > candidate_years
+    
+    # "5+ years" format → stricter for senior candidates
+    match = re.search(r'(\d+)\s*\+', req_lower)
+    if match:
+        min_required = float(match.group(1))
+        if candidate_years >= 5:
+            return min_required > candidate_years - 1
+        return min_required > candidate_years
+    
+    # Plain "5 years" → treat as X+
+    match = re.search(r'(\d+)', req_lower)
+    if match:
+        min_required = float(match.group(1))
+        if candidate_years >= 5:
+            return min_required > candidate_years - 1
+        return min_required > candidate_years
+    
+    return False  # Can't parse — let the LLM decision stand
 
 
 # ── Existing Utilities ───────────────────────────────────────────────────────
@@ -143,7 +172,7 @@ class ParsedProfile(BaseModel):
 class ProfileData(BaseModel):
     job_title: str
     skills: List[str]
-    actual_years_exp: int
+    actual_years_exp: float
     search_range: List[str]
     industry: str
     location: Optional[str] = None
