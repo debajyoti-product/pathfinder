@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, PenLine, Loader2, Briefcase, User, Building2, TrendingUp, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ExternalLink, PenLine, Loader2, Briefcase, User, Building2, TrendingUp, ThumbsUp, ThumbsDown, Info } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { JobResult, ProfileData, ProfileLead } from "@/lib/mockData";
 import { streamDiscoverJobs } from "@/lib/api";
 
@@ -104,31 +111,42 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">Job Results for You</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              {results.length > 0
-                ? "Includes job links & potential referral profiles"
-                : "Scanning the market for perfect matches..."}
-            </p>
-          </div>
-          {results.length > 0 && (
-            <Badge variant="secondary" className="gap-1.5 bg-primary/10 text-primary border-primary/20">
-              <TrendingUp className="w-3 h-3" />
-              {results.length} match{results.length !== 1 ? "es" : ""}
-            </Badge>
-          )}
-        </div>
-        
+      <div className="flex flex-col gap-1 items-center justify-center">
         {/* Funnel Stats */}
         {stats && (
-          <div className="text-xs text-muted-foreground mt-2 bg-muted/30 px-3 py-2 rounded-md border border-border/50 inline-block w-fit">
-            Searched <strong>{stats.searched}</strong> postings &rarr; <strong>{stats.searched - stats.rejected}</strong> matched criteria &rarr; <strong>{stats.passed}</strong> passed quality checks
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-4 py-2.5 rounded-full border border-border/50 w-fit shadow-sm">
+            <span>Searched <strong>{stats.searched}</strong> postings &rarr; <strong>{stats.searched - stats.rejected}</strong> matched criteria</span>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="hover:text-foreground transition-colors cursor-pointer ml-1 outline-none"><Info className="w-3.5 h-3.5" /></button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px] bg-background/80 backdrop-blur-xl border-border/50">
+                <DialogHeader>
+                  <DialogTitle>Exclusion Criteria</DialogTitle>
+                </DialogHeader>
+                <div className="text-sm text-muted-foreground pt-2">
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li>Expired or closed jobs</li>
+                    <li>Don't match seniority/experience level</li>
+                    <li>Different role</li>
+                    <li>Don't match remote work (if applicable)</li>
+                  </ul>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </div>
+
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 animate-pulse">
+          <div className="flex items-end gap-1 text-primary">
+            <User className="w-8 h-8 animate-bounce" />
+            <Briefcase className="w-5 h-5 mb-1" />
+          </div>
+          <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">finding matches for you</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {results.map((result) => (
@@ -265,30 +283,6 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                 <PenLine className="w-3.5 h-3.5" />
                 Generate Draft
               </Button>
-            </div>
-          ))}
-          {/* Active Evaluation Skeletons */}
-          {Object.entries(activeJobs).map(([jobId, job]) => (
-            <div 
-              key={jobId} 
-              className={`rounded-xl border border-primary/20 bg-card/40 p-5 flex flex-col gap-4 shadow-[0_0_15px_rgba(var(--primary),0.1)] transition-all duration-500 ${
-                job.removing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground truncate">{job.company || "Unknown Company"}</h3>
-                  <p className="text-xs text-primary font-medium truncate animate-pulse mt-0.5">{job.status}</p>
-                </div>
-              </div>
-              <div className="space-y-2 mt-2">
-                <div className="h-3 w-3/4 bg-muted/60 rounded" />
-                <div className="h-3 w-1/2 bg-muted/60 rounded" />
-              </div>
-              <div className="h-8 w-full bg-muted/30 rounded-lg mt-auto" />
             </div>
           ))}
         </div>
