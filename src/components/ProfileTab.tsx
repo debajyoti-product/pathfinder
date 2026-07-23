@@ -151,22 +151,34 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
         <div className="lg:col-span-1 rounded-xl border border-border bg-card p-5 space-y-4 h-full">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Experience Range</h3>
           <div className="grid grid-cols-2 gap-2">
-            {experienceOptions.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => setProfile((p) => ({ ...p, experienceRange: opt }))}
-                className={`
-                  px-2 py-2 rounded-lg text-xs font-medium transition-all duration-200
-                  ${
-                    profile.experienceRange === opt
-                      ? "bg-primary text-primary-foreground glow-sm shadow-md"
-                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }
-                `}
-              >
-                {opt}
-              </button>
-            ))}
+            {(() => {
+              const maxExp = (initialProfile?.roles || []).reduce((sum, r) => sum + r.yearsExp, 0);
+              let maxRangeIndex = 0;
+              if (maxExp >= 12) maxRangeIndex = 5;
+              else if (maxExp >= 8) maxRangeIndex = 4;
+              else if (maxExp >= 5) maxRangeIndex = 3;
+              else if (maxExp >= 3) maxRangeIndex = 2;
+              else if (maxExp >= 1) maxRangeIndex = 1;
+              
+              const visibleOptions = experienceOptions.slice(0, Math.min(experienceOptions.length, maxRangeIndex + 2));
+              
+              return visibleOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setProfile((p) => ({ ...p, experienceRange: opt }))}
+                  className={`
+                    px-2 py-2 rounded-lg text-xs font-medium transition-all duration-200
+                    ${
+                      profile.experienceRange === opt
+                        ? "bg-primary text-primary-foreground glow-sm shadow-md"
+                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }
+                  `}
+                >
+                  {opt}
+                </button>
+              ));
+            })()}
           </div>
         </div>
       </div>
