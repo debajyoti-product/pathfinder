@@ -98,18 +98,16 @@ const Index = () => {
       {/* Main */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full max-w-2xl mx-auto bg-muted/30 backdrop-blur-xl border border-border/50 p-1.5 mb-8 rounded-full flex shadow-sm">
+          <TabsList className="w-full max-w-2xl mx-auto h-auto bg-muted/30 backdrop-blur-xl border border-border/50 p-2 mb-8 rounded-full flex shadow-sm">
             {tabs.map((tab, idx) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
                 disabled={!tabEnabled[tab.value]}
-                className="flex-1 rounded-full gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-md text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-500 ease-out"
+                className="flex-1 rounded-full gap-2 py-2.5 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-md text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-500 ease-out"
               >
-                <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full w-full h-full">
-                  <tab.icon className="w-4 h-4" />
-                  <span className="hidden sm:inline font-medium tracking-wide">{tab.label}</span>
-                </div>
+                <tab.icon className="w-4 h-4" />
+                <span className="hidden sm:inline font-medium tracking-wide">{tab.label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
