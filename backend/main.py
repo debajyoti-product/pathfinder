@@ -568,10 +568,13 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             }
             
             await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': company_name, 'status': f'Finding contacts at {company_name}...'})}\n\n")
-            
             # Step 4: Find POC profiles (current employees, relevant department)
-            pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
-            job_data["pocProfiles"] = build_poc_list(pocs)
+            try:
+                pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
+                job_data["pocProfiles"] = build_poc_list(pocs)
+            except Exception as e:
+                print(f"POC Extraction Error on {url}: {e}")
+                job_data["pocProfiles"] = []
             
             # Fix 2: atomic cap check (no overshoot)
             # The jobs_found >= 10 check-and-increment must happen as a single non-await-interrupted block.
