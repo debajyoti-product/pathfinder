@@ -17,6 +17,7 @@ from firecrawl import V1FirecrawlApp
 from agents.resume_parser import ResumeParser
 from agents.jd_validator import extract_job_team_info
 from agents.email_drafter import EmailDrafter
+from agents.semantic_matcher import calculate_semantic_similarity
 
 from services.serper_client import SerperClient
 from agents.metadata_parser import MetadataParser
@@ -492,6 +493,20 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
+            # ── GATE 2.5: Semantic Matcher (Vector Embeddings) ────
+            await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': 'Semantic mapping...'})}\n\n")
+            
+            # Combine core skills and summary for candidate embedding
+            resume_text = f"{profile_dict.get('summary', '')} " + " ".join(profile_dict.get('coreSkills', []))
+            semantic_score = await calculate_semantic_similarity(resume_text, jd_clean)
+            
+            # Fast reject if it's completely irrelevant
+            if semantic_score < 0.35:
+                stats["pre_filtered"] += 1
+                print(f"PRE-FILTER REJECT (Semantic) [{source}]: Low relevance score ({semantic_score:.2f}) — URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
+                return
+
             await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': 'Analyzing fit with Qwen...'})}\n\n")
             # Step 3: Validate using Agent 3 (Qwen)
             eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile_dict)
@@ -525,6 +540,19 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             company_name = eval_res.get("companyName") or extract_company_name(url, source)
             team_name = eval_res.get("teamName")
             
+            # ── SCORE BLENDING & PENALTY ────────────────────────────────────
+            qwen_conf = eval_res.get("confidence", 0.0)
+            
+            # Combine the true semantic relevance with Qwen's logical confidence
+            final_score = (semantic_score * 0.6) + (qwen_conf * 0.4)
+            
+            # Apply requested penalty mechanic (threshold 0.70)
+            if final_score < 0.70:
+                final_score *= 0.8
+                
+            # Ensure it bounds between 0 and 1
+            final_score = max(0.0, min(1.0, final_score))
+            
             job_data = {
                 "type": "job",
                 "id": f"{hash(url)}",
@@ -535,7 +563,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 "team": team_name,
                 "requiredExperience": req_years_str,
                 "reason": f"Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')}",
-                "confidence": eval_res.get("confidence"),
+                "confidence": final_score,
                 "pocProfiles": []
             }
             
