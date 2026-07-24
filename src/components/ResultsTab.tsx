@@ -138,7 +138,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
         )}
       </div>
 
-      {loading && (
+      {loading && results.length === 0 && (
         <div className="flex flex-col items-center justify-center py-10 gap-3 animate-pulse">
           <div className="flex items-end gap-1 text-primary">
             <User className="w-8 h-8 animate-bounce" />
