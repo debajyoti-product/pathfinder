@@ -1,3 +1,20 @@
+
+import logging
+import os
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(os.path.dirname(__file__), 'search.log'), encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('pathfinder')
+
+def log(msg: str):
+    logger.info(msg)
+
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,15 +57,15 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    print("=== Pathfinder AI Suite Booting ===")
+    log("=== Pathfinder AI Suite Booting ===")
     from config import GROQ_API_KEY, SERPER_API_KEY, FIRECRAWL_API_KEY
-    print(f"Llama 3.1 8B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
-    print(f"Qwen 32B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
-    print(f"Serper.dev: {'ENABLED' if SERPER_API_KEY else 'MISSING'}")
-    print(f"Firecrawl: {'ENABLED' if FIRECRAWL_API_KEY else 'MISSING'}")
+    log(f"Llama 3.1 8B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
+    log(f"Qwen 32B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
+    log(f"Serper.dev: {'ENABLED' if SERPER_API_KEY else 'MISSING'}")
+    log(f"Firecrawl: {'ENABLED' if FIRECRAWL_API_KEY else 'MISSING'}")
     if not GROQ_API_KEY:
-        print("CRITICAL: GROQ_API_KEY is missing. Pipeline LLM validation will fail.")
-    print("===================================")
+        log("CRITICAL: GROQ_API_KEY is missing. Pipeline LLM validation will fail.")
+    log("===================================")
 
 # ── Tuning Constants ────────────────────────────────────────────────────────
 RECENCY_FILTER = "qdr:m"  # "qdr:w" for last week, "qdr:m" for last month
@@ -337,7 +354,7 @@ def fetch_jd(url: str) -> str:
             
         return md_text or fetch_jina(url)
     except Exception as e:
-        print(f"Firecrawl failed for {url}: {e}")
+        log(f"Firecrawl failed for {url}: {e}")
         return fetch_jina(url)
 
 
@@ -408,7 +425,7 @@ async def collect_job_urls(job_titles: list, location: str) -> list:
                 if "linkedin.com/jobs" in i.get("link", "")
             ]
         except Exception as e:
-            print(f"LinkedIn Search Error: {e}")
+            log(f"LinkedIn Search Error: {e}")
             return []
             
     def search_nk():
@@ -421,7 +438,7 @@ async def collect_job_urls(job_titles: list, location: str) -> list:
                 if "naukri.com" in i.get("link", "") and "/job-listings-" in i.get("link", "")
             ]
         except Exception as e:
-            print(f"Naukri Search Error: {e}")
+            log(f"Naukri Search Error: {e}")
             return []
 
     def search_boards():
@@ -436,7 +453,7 @@ async def collect_job_urls(job_titles: list, location: str) -> list:
                     urls.append((url, source, item.get("title", "")))
             return urls
         except Exception as e:
-            print(f"Board Search Error: {e}")
+            log(f"Board Search Error: {e}")
             return []
 
     li_urls, nk_urls, board_urls = await asyncio.gather(
@@ -498,7 +515,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             check_text = f"{serper_title} {url}".lower()
             if is_title_too_senior(check_text, candidate_years):
                 stats["pre_filtered"] += 1
-                print(f"PRE-FILTER REJECT [{source}]: '{serper_title[:60]}' — too senior for {candidate_years}yr candidate")
+                log(f"PRE-FILTER REJECT [{source}]: '{serper_title[:60]}' — too senior for {candidate_years}yr candidate")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
@@ -515,14 +532,14 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             is_expired = any(phrase in jd_lower for phrase in EXPIRED_PHRASES)
             if is_expired:
                 stats["pre_filtered"] += 1
-                print(f"PRE-FILTER REJECT [{source}]: Job appears to be expired — URL={url[:80]}")
+                log(f"PRE-FILTER REJECT [{source}]: Job appears to be expired — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
             # ── GATE 2: Deterministic Location Pre-Filter (Python, no LLM) ────
             if is_location_mismatch_pretext(jd_lower, location):
                 stats["pre_filtered"] += 1
-                print(f"PRE-FILTER REJECT (Location) [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
+                log(f"PRE-FILTER REJECT (Location) [{source}]: Location mismatch (JD does not contain '{location}') — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
@@ -537,7 +554,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             # Fast reject if it's completely irrelevant (threshold lowered to 0.20)
             if semantic_score < 0.20:
                 stats["pre_filtered"] += 1
-                print(f"PRE-FILTER REJECT (Semantic) [{source}]: Low relevance score ({semantic_score:.2f}) — URL={url[:80]}")
+                log(f"PRE-FILTER REJECT (Semantic) [{source}]: Low relevance score ({semantic_score:.2f}) — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
 
@@ -549,9 +566,9 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 stats["post_filtered"] += 1
                 trace = eval_res.get("reasoning_trace", {})
                 if "error" in eval_res:
-                    print(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
+                    log(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
                 else:
-                    print(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
+                    log(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
@@ -559,7 +576,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             req_years_str = eval_res.get("required_years_extracted", "Unknown")
             if is_experience_mismatch(req_years_str, candidate_years):
                 stats["post_filtered"] += 1
-                print(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
+                log(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
@@ -567,7 +584,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             detected_loc = eval_res.get("detected_location", "Unknown")
             if is_location_mismatch_postllm(detected_loc, profile_dict.get("location", "India")):
                 stats["post_filtered"] += 1
-                print(f"POST-FILTER REJECT (Location) [{source}]: Location mismatch (Required: {detected_loc}, User: {profile_dict.get('location', 'India')}) — URL={url[:80]}")
+                log(f"POST-FILTER REJECT (Location) [{source}]: Location mismatch (Required: {detected_loc}, User: {profile_dict.get('location', 'India')}) — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
@@ -608,7 +625,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 pocs = await asyncio.to_thread(find_poc_profiles, company_name, team_name)
                 job_data["pocProfiles"] = build_poc_list(pocs)
             except Exception as e:
-                print(f"POC Extraction Error on {url}: {e}")
+                log(f"POC Extraction Error on {url}: {e}")
                 job_data["pocProfiles"] = []
             
             # Fix 2: atomic cap check (no overshoot)
@@ -616,7 +633,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             # Multiple concurrent tasks can reach this check simultaneously between awaits.
             # We increment and check before putting the result into the queue, inside one synchronous section.
             if stats["jobs_found"] >= 10:
-                print(f"OVERSHOOT AVOIDED [{source}]: Discarding valid job because cap (10) was hit concurrently — URL={url[:80]}")
+                log(f"OVERSHOOT AVOIDED [{source}]: Discarding valid job because cap (10) was hit concurrently — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
@@ -624,7 +641,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             await queue.put(f"data: {json.dumps(job_data)}\n\n")
             
         except Exception as e:
-            print(f"Worker Error on {url}: {e}")
+            log(f"Worker Error on {url}: {e}")
             import traceback
             traceback.print_exc()
 
@@ -638,13 +655,13 @@ async def discover_jobs(req: DiscoverRequest):
             location = profile.get("location", "India")
             candidate_years = float(profile.get("actual_years_exp", 0))
             
-            print(f"--- Discovery Started ---")
-            print(f"Titles: {job_titles}, Location: {location}, Candidate Years: {candidate_years}")
-            print(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
+            log(f"--- Discovery Started ---")
+            log(f"Titles: {job_titles}, Location: {location}, Candidate Years: {candidate_years}")
+            log(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
             
             # Fix 1: Collect URLs using job_titles
             urls = await collect_job_urls(job_titles, location)
-            print(f"Total Unique URLs found: {len(urls)}")
+            log(f"Total Unique URLs found: {len(urls)}")
             
             stats = {"jobs_found": 0, "pre_filtered": 0, "post_filtered": 0}
             queue = asyncio.Queue()
@@ -683,13 +700,13 @@ async def discover_jobs(req: DiscoverRequest):
                 # NOTE: Cancelling the asyncio task does not stop in-flight asyncio.to_thread 
                 # calls to Firecrawl/Jina/Serper. Those API calls will complete in the 
                 # background and their cost/latency is already spent. This is an accepted tradeoff.
-                print("Cancelling pending/in-flight asyncio tasks. Note: this does not stop in-flight asyncio.to_thread calls to Firecrawl/Jina/Serper; those API calls will complete in the background and their cost is already spent.")
+                log("Cancelling pending/in-flight asyncio tasks. Note: this does not stop in-flight asyncio.to_thread calls to Firecrawl/Jina/Serper; those API calls will complete in the background and their cost is already spent.")
                 
             yield f"data: {json.dumps({'type': 'stats', 'searched': len(urls), 'matched': stats['jobs_found'], 'passed': stats['jobs_found'], 'rejected': stats['pre_filtered'] + stats['post_filtered']})}\n\n"
-            print(f"--- Discovery Complete: {stats['jobs_found']} matched, {stats['pre_filtered']} pre-filtered, {stats['post_filtered']} post-filtered ---")
+            log(f"--- Discovery Complete: {stats['jobs_found']} matched, {stats['pre_filtered']} pre-filtered, {stats['post_filtered']} post-filtered ---")
 
         except Exception as e:
-            print(f"Generator Error: {e}")
+            log(f"Generator Error: {e}")
             import traceback
             traceback.print_exc()
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
