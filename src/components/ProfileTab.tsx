@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { X, Plus, Check, RotateCcw, MapPin } from "lucide-react";
+import { X, Plus, Check, RotateCcw, MapPin, CheckCircle2, Circle } from "lucide-react";
 import { ProfileData, defaultProfile, experienceOptions } from "@/lib/mockData";
 
 interface ProfileTabProps {
@@ -115,33 +115,35 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
               <button
                 key={idx}
                 onClick={() => toggleRole(idx)}
-                className={`group relative flex flex-col items-start p-3 rounded-lg border transition-all duration-200 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`group relative flex flex-col items-start p-3.5 rounded-xl border-2 transition-all duration-200 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   role.active
-                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                    : 'bg-card text-foreground border-border hover:border-primary/50'
+                    ? 'bg-primary/5 border-primary shadow-sm'
+                    : 'bg-card border-border hover:border-primary/50'
                 }`}
               >
-                <div className="flex items-start justify-between w-full">
-                  <span className={`text-sm font-medium leading-tight pr-4 ${role.active ? 'text-primary-foreground' : 'text-foreground'}`}>
-                    {role.title}
-                  </span>
+                <div className="flex items-start gap-3 w-full">
+                  <div className="mt-0.5 shrink-0">
+                    {role.active ? (
+                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-muted-foreground group-hover:text-primary/50 transition-colors" />
+                    )}
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0 pr-6">
+                    <span className={`text-sm font-semibold leading-tight ${role.active ? 'text-primary' : 'text-foreground'}`}>
+                      {role.title}
+                    </span>
+                    <span className={`text-xs mt-1 font-medium ${role.active ? 'text-primary/80' : 'text-muted-foreground'}`}>
+                      {role.yearsExp} {role.yearsExp === 1 ? 'year' : 'years'} exp
+                    </span>
+                  </div>
                   <div
                     onClick={(e) => { e.stopPropagation(); removeDetailedRole(idx); }}
-                    className={`absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${
-                      role.active ? 'hover:bg-primary-foreground/20 text-primary-foreground' : 'hover:bg-muted text-muted-foreground'
-                    }`}
+                    className="absolute top-2 right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted text-muted-foreground hover:text-foreground"
                   >
                     <X className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <span className={`text-xs mt-1 font-medium ${role.active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                  {role.yearsExp} {role.yearsExp === 1 ? 'year' : 'years'} exp
-                </span>
-                {role.active && (
-                  <div className="absolute bottom-2 right-2">
-                    <Check className="w-4 h-4 text-primary-foreground/80" />
-                  </div>
-                )}
               </button>
             ))}
           </div>
