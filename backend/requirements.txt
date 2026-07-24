@@ -4,5 +4,5 @@ python-multipart
 pypdf
 httpx
 python-dotenv
-firecrawl-py
+firecrawl-py==4.24.1
 python-dateutil

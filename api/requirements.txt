@@ -6,5 +6,5 @@ httpx
 python-dotenv
 google-generativeai
 groq
-firecrawl-py
+firecrawl-py==4.24.1
 python-dateutil

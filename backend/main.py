@@ -325,8 +325,17 @@ def fetch_jd(url: str) -> str:
         return fetch_jina(url)
     
     try:
-        res = firecrawl_app.scrape_url(url, params={"formats": ["markdown"], "onlyMainContent": True})
-        return res.get("markdown", fetch_jina(url))
+        res = firecrawl_app.scrape_url(
+            url,
+            formats=["markdown"],
+            only_main_content=True,
+        )
+        # Handle both Pydantic models (v4.24+) and fallback dicts
+        md_text = getattr(res, 'markdown', None)
+        if md_text is None and isinstance(res, dict):
+            md_text = res.get("markdown")
+            
+        return md_text or fetch_jina(url)
     except Exception as e:
         print(f"Firecrawl failed for {url}: {e}")
         return fetch_jina(url)
