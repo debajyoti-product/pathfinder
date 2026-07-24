@@ -6,11 +6,17 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(message)s',
     handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(__file__), 'search.log'), encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger('pathfinder')
+
+try:
+    file_handler = logging.FileHandler(os.path.join(os.path.dirname(__file__), 'search.log'), encoding='utf-8')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    logger.addHandler(file_handler)
+except Exception:
+    pass  # Ignore file lock errors during uvicorn hot-reload on Windows
 
 def log(msg: str):
     logger.info(msg)
