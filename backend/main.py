@@ -512,6 +512,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile_dict)
             
             if eval_res.get("isValidRange") is not True:
+                stats["post_filtered"] += 1
                 trace = eval_res.get("reasoning_trace", {})
                 if "error" in eval_res:
                     print(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
