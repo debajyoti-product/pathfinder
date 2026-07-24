@@ -53,13 +53,11 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
               delete next[event.id];
               return next;
             });
-            setLoading(false);
           } else if (event.type === 'status') {
             setActiveJobs((prev) => ({
               ...prev,
               [event.jobId]: { company: event.company, status: event.status }
             }));
-            setLoading(false);
           } else if (event.type === 'remove') {
             setActiveJobs((prev) => {
               if (!prev[event.jobId]) return prev;
