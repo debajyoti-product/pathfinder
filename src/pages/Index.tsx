@@ -7,6 +7,7 @@ import ResultsTab from "@/components/ResultsTab";
 import DraftingTab from "@/components/DraftingTab";
 import { ProfileData, JobResult } from "@/lib/mockData";
 import { parseResume } from "@/lib/api";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -76,22 +77,25 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center">
-          <button 
-            onClick={() => {
-              setActiveTab("home");
-              setProfile(null);
-              setDraftTarget(null);
-              setResumeUploaded(false);
-              setProfileConfirmed(false);
-            }} 
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-          >
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Compass className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-foreground -mb-0.5">Pathfinder</span>
-          </button>
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => {
+                setActiveTab("home");
+                setProfile(null);
+                setDraftTarget(null);
+                setResumeUploaded(false);
+                setProfileConfirmed(false);
+              }} 
+              className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            >
+              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                <Compass className="w-4 h-4 text-primary-foreground" />
+              </div>
+              <span className="text-lg font-bold tracking-tight text-foreground -mb-0.5">Pathfinder</span>
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
