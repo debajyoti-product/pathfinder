@@ -671,7 +671,7 @@ async def discover_jobs(req: DiscoverRequest):
             
             stats = {"jobs_found": 0, "pre_filtered": 0, "post_filtered": 0}
             queue = asyncio.Queue()
-            sem = asyncio.Semaphore(3)
+            sem = asyncio.Semaphore(2)
             
             tasks = []
             for url, source, serper_title in urls:
