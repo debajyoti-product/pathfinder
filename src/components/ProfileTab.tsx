@@ -243,7 +243,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
       </div>
 
       {/* Location + Remote Toggle + Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-border">
+      <div className="sticky bottom-0 z-40 bg-background/95 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 border-t border-border">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-muted-foreground" />
