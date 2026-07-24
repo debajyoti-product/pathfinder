@@ -242,14 +242,25 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
         })()}
       </div>
 
-      {/* Remote Toggle + Actions */}
+      {/* Location + Remote Toggle + Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <Switch
-            checked={profile.remoteOnly}
-            onCheckedChange={(checked) => setProfile((p) => ({ ...p, remoteOnly: checked }))}
-          />
-          <span className="text-sm text-foreground font-medium">Remote only</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-muted-foreground" />
+            <Input 
+              className="h-8 w-[140px] text-sm bg-muted/40 border-border/50" 
+              placeholder="e.g. Bangalore" 
+              value={profile.location || ""}
+              onChange={(e) => setProfile(p => ({ ...p, location: e.target.value }))}
+            />
+          </div>
+          <div className="flex items-center gap-2 border-l border-border pl-4">
+            <Switch
+              checked={profile.remoteOnly}
+              onCheckedChange={(checked) => setProfile((p) => ({ ...p, remoteOnly: checked }))}
+            />
+            <span className="text-sm text-foreground font-medium">Remote only</span>
+          </div>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={onCancel} className="gap-2 border-border text-muted-foreground hover:text-foreground">

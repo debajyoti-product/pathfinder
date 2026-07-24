@@ -173,7 +173,7 @@ class ParsedProfile(BaseModel):
     location: Optional[str] = None
 
 class ProfileData(BaseModel):
-    job_title: str
+    job_titles: List[str]
     skills: List[str]
     actual_years_exp: float
     search_range: List[str]
@@ -369,7 +369,23 @@ async def parse_resume(file: UploadFile = File(...)):
 class DiscoverRequest(BaseModel):
     profile: ProfileData
 
-async def collect_job_urls(job_title: str, location: str) -> list:
+def build_location_query(location: str) -> str:
+    loc = location.strip()
+    if not loc or loc.lower() == "india":
+        return "" # Don't search "India" as a keyword, it ruins city recall
+    
+    loc_lower = loc.lower()
+    aliases = [loc]
+    if "bangalore" in loc_lower or "bengaluru" in loc_lower:
+        aliases = ["Bangalore", "Bengaluru"]
+    elif "gurgaon" in loc_lower or "gurugram" in loc_lower:
+        aliases = ["Gurgaon", "Gurugram"]
+        
+    if len(aliases) == 1:
+        return aliases[0]
+    return "(" + " OR ".join(aliases) + ")"
+
+async def collect_job_urls(job_titles: list, location: str) -> list:
     """Step 1: Collect job URLs from multiple sources concurrently.
     
     Returns list of (url, source, serper_title) tuples.
@@ -377,9 +393,15 @@ async def collect_job_urls(job_title: str, location: str) -> list:
     """
     all_urls = []
     
+    # Format job titles for OR query without strict exact quotes for multi-words if not needed, 
+    # but since roles are often multi-word (e.g. "Product Manager"), quoting the OR components is safest.
+    titles_query = "(" + " OR ".join(f'"{t}"' for t in job_titles) + ")"
+    loc_query = build_location_query(location)
+    
     def search_li():
         try:
-            res = serper_client.search(f'site:linkedin.com/jobs/view "{job_title}" "{location}"', tbs=RECENCY_FILTER)
+            query = f'site:linkedin.com/jobs/view {titles_query} {loc_query}'.strip()
+            res = serper_client.search(query, tbs=RECENCY_FILTER)
             return [
                 (i.get("link"), "LinkedIn", i.get("title", ""))
                 for i in res.get("organic", [])
@@ -391,7 +413,8 @@ async def collect_job_urls(job_title: str, location: str) -> list:
             
     def search_nk():
         try:
-            res = serper_client.search(f'site:naukri.com "{job_title}" "{location}"', tbs=RECENCY_FILTER)
+            query = f'site:naukri.com {titles_query} {loc_query}'.strip()
+            res = serper_client.search(query, tbs=RECENCY_FILTER)
             return [
                 (i.get("link"), "Naukri", i.get("title", ""))
                 for i in res.get("organic", [])
@@ -403,7 +426,8 @@ async def collect_job_urls(job_title: str, location: str) -> list:
 
     def search_boards():
         try:
-            res = serper_client.search(f'"{job_title}" "{location}" (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)', tbs=RECENCY_FILTER)
+            query = f'{titles_query} {loc_query} (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)'.strip()
+            res = serper_client.search(query) # No tbs for boards, let them stay open longer
             urls = []
             for item in res.get("organic", []):
                 url = item.get("link")
@@ -467,7 +491,7 @@ def build_poc_list(poc_profiles: list) -> list:
 async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dict, candidate_years, stats):
     async with sem:
         try:
-            job_title = profile_dict.get("job_title", "Product Manager")
+            primary_title = profile_dict.get("job_titles", ["Product Manager"])[0]
             location = profile_dict.get("location", "India")
             
             # ── GATE 0: Deterministic Title Pre-Filter (Python, no LLM) ─────
@@ -505,12 +529,13 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             # ── GATE 2.5: Semantic Matcher (Vector Embeddings) ────
             await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': 'Semantic mapping...'})}\n\n")
             
-            # Combine core skills and summary for candidate embedding
-            resume_text = f"{profile_dict.get('summary', '')} " + " ".join(profile_dict.get('coreSkills', []))
+            # Combine core skills and summary for candidate embedding in a prose format
+            # Combine core skills and summary for candidate embedding in a prose format
+            resume_text = f"{primary_title} with {candidate_years} years experience in {profile_dict.get('industry', 'tech')}. Skills: {', '.join(profile_dict.get('coreSkills', []))}. {profile_dict.get('summary', '')}"
             semantic_score = await calculate_semantic_similarity(resume_text, jd_clean)
             
-            # Fast reject if it's completely irrelevant
-            if semantic_score < 0.35:
+            # Fast reject if it's completely irrelevant (threshold lowered to 0.20)
+            if semantic_score < 0.20:
                 stats["pre_filtered"] += 1
                 print(f"PRE-FILTER REJECT (Semantic) [{source}]: Low relevance score ({semantic_score:.2f}) — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
@@ -567,7 +592,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 "type": "job",
                 "id": f"{hash(url)}",
                 "company": company_name,
-                "jobTitle": job_title,
+                "jobTitle": primary_title,
                 "url": url,
                 "linkedin": url,
                 "team": team_name,
@@ -609,16 +634,16 @@ async def discover_jobs(req: DiscoverRequest):
     
     async def job_generator():
         try:
-            job_title = profile.get("job_title", "Product Manager")
+            job_titles = profile.get("job_titles", ["Product Manager"])
             location = profile.get("location", "India")
             candidate_years = float(profile.get("actual_years_exp", 0))
             
             print(f"--- Discovery Started ---")
-            print(f"Title: {job_title}, Location: {location}, Candidate Years: {candidate_years}")
+            print(f"Titles: {job_titles}, Location: {location}, Candidate Years: {candidate_years}")
             print(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
             
-            # Step 1: Collect URLs from LinkedIn, Naukri, and job boards
-            urls = await collect_job_urls(job_title, location)
+            # Fix 1: Collect URLs using job_titles
+            urls = await collect_job_urls(job_titles, location)
             print(f"Total Unique URLs found: {len(urls)}")
             
             stats = {"jobs_found": 0, "pre_filtered": 0, "post_filtered": 0}
@@ -723,7 +748,7 @@ async def draft_email(req: DraftRequest):
     if not news_snippet.strip():
         news_snippet = "No recent news available — focus on the company mission and role fit instead."
 
-    profile_summary = f"{req.profile.job_title} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
+    profile_summary = f"{req.profile.job_titles[0] if req.profile.job_titles else 'Candidate'} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
 
     result = email_drafter.draft(
         profile_summary=profile_summary,

@@ -54,12 +54,7 @@ Extract the EXACT experience requirement from the JD. Then apply these rules:
 - The JD's minimum requirement (X) is ≤ {total_years}
 - OR the JD does not state any experience requirement AND the title does not contain senior keywords
 
-### GATE 2: Geographic Integrity ({user_location})
-- If the JD's primary location is clearly NOT {user_location}, REJECT.
-- SEO traps: title says "{user_location}" but body/metadata says another country → REJECT.
-- Ambiguous or "Remote" without country restriction → PASS.
-
-### GATE 3: Remote Policy (Only applies if remote_only = true)
+### GATE 2: Remote Policy (Only applies if remote_only = true)
 - JD must explicitly state "Remote", "WFH", or "Work from anywhere" for {user_location}.
 - If remote_only is false, auto-PASS.
 
@@ -67,13 +62,13 @@ Extract the EXACT experience requirement from the JD. Then apply these rules:
 1. **companyName**: The hiring company's name from the JD text. Look for "About [Company]", "at [Company]", header, footer.
 2. **teamName**: The team/department (e.g., "Growth", "Platform"). null if not found.
 3. **required_years_extracted**: The exact experience requirement string (e.g., "3-5 years", "5+ years", "Not specified").
+4. **detected_location**: The job's location extracted from the JD.
 
 ## Output Contract (JSON ONLY — no other text)
 {{
   "isValidRange": boolean,
   "reasoning_trace": {{
     "experience_gate": "Passed/Failed — JD requires [X], candidate has {total_years} yrs. [Reason]",
-    "location_gate": "Passed/Failed — [Reason]",
     "remote_gate": "Passed/Failed — [Reason]"
   }},
   "confidence": number (0.0-1.0),
@@ -87,7 +82,7 @@ Extract the EXACT experience requirement from the JD. Then apply these rules:
     if not res or "error" in res:
         err_msg = res.get("error", "Unknown Error") if isinstance(res, dict) else "Unknown Error"
         print(f"JD Validator Error: {err_msg}")
-        res = {"isValidRange": False, "error": err_msg, "reasoning_trace": {"experience_gate": f"API/Parse Error: {err_msg}", "location_gate": "Error", "remote_gate": "Error"}}
+        res = {"isValidRange": False, "error": err_msg, "reasoning_trace": {"experience_gate": f"API/Parse Error: {err_msg}", "remote_gate": "Error"}}
     if "isValidRange" not in res:
         res["isValidRange"] = False
     res.setdefault("required_years_extracted", "Unknown")
