@@ -6,11 +6,11 @@ from config import GROQ_API_KEY
 from services.usage_tracker import log_usage, is_over_limit
 
 LLAMA_MODELS = [
-    "llama-3.1-8b-instant"
+    "qwen/qwen3.6-27b"
 ]
 
 LLAMA_70B_MODELS = [
-    "llama-3.3-70b-versatile"
+    "qwen/qwen3.6-27b"
 ]
 
 QWEN_MODELS = [

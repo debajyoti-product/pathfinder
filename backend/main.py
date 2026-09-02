@@ -65,8 +65,7 @@ app.add_middleware(
 async def startup_event():
     log("=== Pathfinder AI Suite Booting ===")
     from config import GROQ_API_KEY, SERPER_API_KEY, FIRECRAWL_API_KEY
-    log(f"Llama 3.1 8B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
-    log(f"Qwen 32B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
+    log(f"Qwen 3.6 27B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
     log(f"Serper.dev: {'ENABLED' if SERPER_API_KEY else 'MISSING'}")
     log(f"Firecrawl: {'ENABLED' if FIRECRAWL_API_KEY else 'MISSING'}")
     if not GROQ_API_KEY:
