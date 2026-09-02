@@ -32,7 +32,7 @@ def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = Tr
             "model": model,
             "messages": [{"role": "user", "content": prompt}]
         }
-        if json_mode:
+        if json_mode and "qwen" not in model.lower() and "deepseek" not in model.lower():
             data["response_format"] = {"type": "json_object"}
             
         for attempt in range(2):
