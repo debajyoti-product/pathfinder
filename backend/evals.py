@@ -51,10 +51,19 @@ def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = Tr
                     # Strip <think> tags from reasoning models (Qwen, DeepSeek-R1)
                     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
                     
-                    if content.startswith("```json"):
-                        content = content[7:-3].strip()
-                    elif content.startswith("```"):
-                        content = content[3:-3].strip()
+                    # Robust JSON extraction
+                    json_match = re.search(r'```(?:json)?(.*?)```', content, flags=re.DOTALL | re.IGNORECASE)
+                    if json_match:
+                        content = json_match.group(1).strip()
+                    else:
+                        # Fallback: extract substring from first '{' or '[' to last '}' or ']'
+                        first_brace = content.find('{')
+                        first_bracket = content.find('[')
+                        start_idx = min(first_brace, first_bracket) if first_brace != -1 and first_bracket != -1 else max(first_brace, first_bracket)
+                        if start_idx != -1:
+                            end_idx = max(content.rfind('}'), content.rfind(']'))
+                            if end_idx != -1:
+                                content = content[start_idx:end_idx+1].strip()
                     
                     try:
                         return json.loads(content)
