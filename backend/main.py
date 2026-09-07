@@ -393,8 +393,8 @@ class DiscoverRequest(BaseModel):
 
 def build_location_query(location: str) -> str:
     loc = location.strip()
-    if not loc or loc.lower() == "india":
-        return "" # Don't search "India" as a keyword, it ruins city recall
+    if not loc:
+        return ""
     
     loc_lower = loc.lower()
     aliases = [loc]
@@ -404,8 +404,8 @@ def build_location_query(location: str) -> str:
         aliases = ["Gurgaon", "Gurugram"]
         
     if len(aliases) == 1:
-        return aliases[0]
-    return "(" + " OR ".join(aliases) + ")"
+        return f'"{aliases[0]}"'
+    return "(" + " OR ".join(f'"{a}"' for a in aliases) + ")"
 
 async def collect_job_urls(job_titles: list, location: str) -> list:
     """Step 1: Collect job URLs from multiple sources concurrently.
@@ -670,7 +670,7 @@ async def discover_jobs(req: DiscoverRequest):
             
             stats = {"jobs_found": 0, "pre_filtered": 0, "post_filtered": 0}
             queue = asyncio.Queue()
-            sem = asyncio.Semaphore(2)
+            sem = asyncio.Semaphore(1) # Reduced to 1 to respect Groq rate limits
             
             tasks = []
             for url, source, serper_title in urls:
