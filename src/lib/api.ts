@@ -161,7 +161,7 @@ export async function draftEmail(
   pocName?: string,
   pocRole?: string,
   jobUrl?: string
-): Promise<{email: string, news: any[]}> {
+): Promise<{email: string, company_intel: string}> {
   const payload = {
     job_titles: profile.targetRoles.length > 0 ? profile.targetRoles : ["Product Manager"],
     skills: profile.coreSkills,
@@ -185,6 +185,13 @@ export async function draftEmail(
     }),
   });
 
-  if (!res.ok) throw new Error("Failed to draft email");
-  return await res.json();
+  if (!res.ok) {
+    throw new Error("Failed to draft email");
+  }
+
+  const data = await res.json();
+  return {
+    email: data.email,
+    company_intel: data.company_intel
+  };
 }

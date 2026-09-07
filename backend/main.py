@@ -838,20 +838,18 @@ NEWS_CACHE = {}
 
 @app.post("/api/draft-email")
 async def draft_email(req: DraftRequest):
-    # News from last 6 months
+    # Search for company intel instead of news
     company_key = req.company.lower().strip()
     if company_key in NEWS_CACHE:
-        news_items = NEWS_CACHE[company_key]
+        intel_snippets = NEWS_CACHE[company_key]
     else:
-        news_query = f'{req.company} news'
-        serper_res = serper_client.search(news_query, search_type="news", tbs="qdr:m6")
-        news_items = serper_res.get("news", [])
-        NEWS_CACHE[company_key] = news_items
+        intel_query = f'{req.company} core product business model user segments competitors'
+        serper_res = serper_client.search(intel_query)
+        snippets = [item.get("snippet", "") for item in serper_res.get("organic", [])[:8]]
+        intel_snippets = "\n".join(snippets)
+        NEWS_CACHE[company_key] = intel_snippets
 
-    news_snippet = "\n".join([n.get("title", "") for n in news_items[:3]])
-    if not news_snippet.strip():
-        news_snippet = "No recent news available — focus on the company mission and role fit instead."
-
+    # Get user first name from poc profiles or default
     profile_summary = f"{req.profile.job_titles[0] if req.profile.job_titles else 'Candidate'} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
 
     result = email_drafter.draft(
@@ -859,9 +857,7 @@ async def draft_email(req: DraftRequest):
         job_title=req.job_title,
         company=req.company,
         poc_name=req.poc_name or "Hiring Team",
-        poc_role=req.poc_role or "Hiring Team",
-        job_url=req.job_url or "Not provided",
-        news_snippet=news_snippet,
+        intel_snippets=intel_snippets,
     )
 
-    return {"email": result.get("body", ""), "news": news_items[:3]}
+    return {"email": result.get("body", ""), "company_intel": result.get("company_intel", "")}

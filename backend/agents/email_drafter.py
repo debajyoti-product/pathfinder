@@ -14,75 +14,73 @@ class EmailDrafter:
         job_title: str,
         company: str,
         poc_name: str,
-        poc_role: str,
-        job_url: str,
-        news_snippet: str,
+        intel_snippets: str,
     ) -> dict:
-        has_news = news_snippet and "No recent news" not in news_snippet
-
-        if has_news:
-            signal_instruction = f"""- **Signal:** {news_snippet}
-
-## Step 1: Strategic Planning (Internal Monologue)
-- **Identify the Hook:** How does the news signal create a problem or opportunity that the Candidate's skills can solve?
-- **Referral Context:** Mention that you are reaching out to them specifically as a {poc_role} within the team.
-
-## Step 2: The "No-Fluff" Drafting Constraints
-1. **Banned Openers:** DO NOT use "I hope this finds you well," "I am writing to," or "My name is".
-2. **The Intent Line:** You MUST integrate the news signal as a reason for your timing (e.g., "Given your recent move into [News], I thought my experience in [Skill] would be relevant for the [Job] role.").
-3. **Brevity:** Maximum 100 words. Every sentence must add value."""
-        else:
-            signal_instruction = f"""- **Signal:** No recent company news available.
-
-## Step 1: Strategic Planning (Internal Monologue)
-- **Identify the Hook:** Since there is no recent news, connect the Candidate's SPECIFIC skills and achievements to the company's domain and the open role.
-- **Referral Context:** Mention that you are reaching out to them specifically as a {poc_role} within the team.
-
-## Step 2: The "No-Fluff" Drafting Constraints
-1. **Banned Openers:** DO NOT use "I hope this finds you well," "I am writing to," or "My name is".
-2. **The Intent Line:** Reference a specific candidate achievement that is relevant to the {job_title} role at {company} (e.g., "Having driven 5X revenue growth through subscription pricing at a YC-backed startup, I believe I could bring a similar approach to [Company].").
-3. **Brevity:** Maximum 100 words. Every sentence must add value."""
 
         prompt = f"""## System Persona
-You are a Tactical Career Coach and Cold Email Strategist. Your goal is to produce a high-signal, 100-word "Peer-to-Peer" cold email that connects a candidate's background to a specific company mission.
+You are a Tactical Career Coach, Company Researcher, and Cold Email Strategist. Your goal is to produce two things:
+1. A structured company intel report based on the provided search snippets.
+2. A cold email draft that strictly follows a provided template.
 
 ## Input Context
 - **Candidate:** {profile_summary}
 - **Target:** {job_title} at {company}
-- **Job URL:** {job_url}
-- **Contact:** {poc_name} ({poc_role})
-{signal_instruction}
+- **Contact:** {poc_name}
+- **Company Intel Search Snippets:**
+{intel_snippets}
 
-## Step 3: Mandatory Self-Critique Gate
-Evaluate your draft against these checkboxes:
-- [ ] Does it start with a filler sentence? (If yes, delete it).
-- [ ] Is there a clear, specific reason WHY the candidate is reaching out NOW?
-- [ ] Is there a clear, low-friction call to action?
-- [ ] Is the tone "Peer-to-Peer" rather than "Applicant-to-Authority"?
+## Task 1: Generate Company Intel
+Using the provided snippets and your internal knowledge base about {company}, generate a structured markdown report EXACTLY in this format (no deviations):
+
+* one-line description of what the company does, who they serve & their scale/reach
+   * [Core product/platform description, what it does end-to-end]
+   * [Key proprietary technology, infrastructure, or capability]
+   * [Business model]
+
+* User/customer segments
+   * [Segment 1...]
+   * [Segment 2...]
+
+* Competitors
+   * [Direct competitor 1...]
+   * [Direct competitor 2...]
+   * [Indirect competitor 1...]
+   * [Indirect competitor 2...]
+
+* What's interesting
+   * [USP/moat]
+   * [Unique product insights]
+   * [Recent news (if any)]
+   * [One open product problem or opportunity worth exploring as a PM]
+
+## Task 2: Generate the Email Draft
+Strictly use the following template to generate the email body. DO NOT add "Subject:". Replace the bracketed placeholders with contextually accurate information.
+The tone should be peer-to-peer and professional.
+
+Template:
+Hello {poc_name}, Debajyoti here. Hope you are doing well. I was wondering if you are currently hiring for any junior product roles.
+[Utilize the resume experience & summary to create an active phrasing sentence like: "I have X years of experience in building products for X users & Y revenue"]
+Why {company}?
+[Bullet 1: Highly reflect the candidate's match against the skills, experience, requirements & industry of the company]
+[Bullet 2: Sharp, brief & unique point]
+[Bullet 3: Sharp, brief & unique point]
+If my profile seems suitable, let me know if we can explore synergies.
+
+Regards
+Debajyoti
 
 ## Output Contract (JSON ONLY)
 {{
-  "subject": "string",
-  "body": "string",
-  "critique_notes": "Internal notes on why this version passed the quality gate",
-  "has_intent_line": true
+  "company_intel": "string (the markdown generated in Task 1)",
+  "body": "string (the email draft generated in Task 2)"
 }}"""
 
         result = _call_llama_json(prompt)
         if "error" in result:
-            return {"subject": "Error generating draft", "body": f"API Error: {result['error']}", "critique_notes": ""}
+            return {"body": f"API Error: {result['error']}", "company_intel": "Error generating intel."}
             
-        email_text = result.get("body", result.get("email", ""))
-
-        # Auto-retry once if the self-critique gate was ignored
-        if not result.get("has_intent_line", False) and not email_text:
-            result = _call_llama_json(
-                prompt + "\nCRITICAL: You MUST produce a complete email body. Include a specific reason for reaching out."
-            )
-            email_text = result.get("body", result.get("email", ""))
-
         return {
-            "subject": result.get("subject", ""),
-            "body": email_text,
-            "critique_notes": result.get("critique_notes", ""),
+            "body": result.get("body", ""),
+            "company_intel": result.get("company_intel", ""),
         }
+

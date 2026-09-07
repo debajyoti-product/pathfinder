@@ -14,7 +14,7 @@ interface DraftingTabProps {
 
 const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
   const [draft, setDraft] = useState("");
-  const [research, setResearch] = useState<any[]>([]);
+  const [research, setResearch] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState<'preview' | 'edit'>('preview');
@@ -28,7 +28,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
       const jobUrl = result.url || result.linkedin || undefined;
       const res = await draftEmail(profile, result.jobTitle, result.company, pocName, pocRole, jobUrl);
       setDraft(res.email);
-      setResearch(res.news || []);
+      setResearch(res.company_intel || "");
     } catch (e) {
       console.error(e);
       toast.error("Failed to generate draft");
@@ -50,7 +50,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
 
   const handleRegenerate = () => {
     setDraft("");
-    setResearch([]);
+    setResearch("");
     fetchDraft();
   };
 
@@ -149,24 +149,13 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
             <Newspaper className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Company Intel</h3>
           </div>
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[350px] pr-2">
-            {research?.length > 0 ? (
-              research.map((item, i) => (
-                <div key={i} className="flex gap-3 p-3 rounded-lg bg-muted/50 border border-border/50 hover:border-primary/30 transition-colors">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-foreground hover:text-primary transition-colors hover:underline line-clamp-2">
-                      {item.title}
-                    </a>
-                    {item.snippet && <p className="text-xs text-secondary-foreground leading-relaxed line-clamp-2">{item.snippet}</p>}
-                    {(item.source || item.date) && (
-                      <span className="text-xs text-muted-foreground">{item.source} {item.date ? `· ${item.date}` : ''}</span>
-                    )}
-                  </div>
-                </div>
-              ))
+          <div className="flex-1 overflow-y-auto max-h-[450px] pr-2">
+            {research ? (
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-secondary-foreground">
+                {research}
+              </pre>
             ) : (
-              <div className="text-sm text-muted-foreground italic">No recent news found.</div>
+              <div className="text-sm text-muted-foreground italic">No intel generated.</div>
             )}
           </div>
         </div>
@@ -194,10 +183,6 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
                 <RefreshCw className="w-3 h-3" />
                 Regenerate
               </Button>
-              <Button variant="ghost" size="sm" onClick={handleCopy} className="gap-1.5 text-muted-foreground hover:text-foreground h-7 text-xs">
-                {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
             </div>
           </div>
           
@@ -215,20 +200,10 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
             <span className="text-xs text-muted-foreground">{wordCount} words</span>
             <Button 
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => {
-                let url = result.linkedin;
-                if (url) {
-                  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                    url = `https://${url}`;
-                  }
-                  window.open(url, "_blank");
-                } else {
-                  toast.error("No LinkedIn profile available for this contact.");
-                }
-              }}
+              onClick={handleCopy}
             >
-              <Send className="w-4 h-4" />
-              Send Draft on LinkedIn
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Draft"}
             </Button>
           </div>
         </div>

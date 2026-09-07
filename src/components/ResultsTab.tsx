@@ -192,38 +192,46 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                   )}
                 </div>
 
-
-
-                <div className="flex items-center justify-between">
-                  {result.linkedin && (
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+                  {result.linkedin ? (
                     <a
                       href={result.linkedin.startsWith("http") ? result.linkedin : `https://${result.linkedin}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                      className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
                     >
                       View Job <ExternalLink className="w-3 h-3" />
                     </a>
+                  ) : (
+                    <span className="text-xs font-medium text-muted-foreground inline-flex items-center gap-1">
+                      View Job <ExternalLink className="w-3 h-3" />
+                    </span>
                   )}
                   {result.confidence && (
-                    <div className="relative group/badge flex items-center justify-center">
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] shrink-0 cursor-help ${
-                          result.confidence >= 0.85
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                        }`}
-                      >
-                        {Math.round(result.confidence * 100)}% fit
-                      </Badge>
-                      {/* Reason Tooltip */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
+                            result.confidence >= 0.85
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          }`}
+                        >
+                          {Math.round(result.confidence * 100)}% fit
+                        </Badge>
+                      </DialogTrigger>
                       {result.reason && (
-                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-popover text-popover-foreground text-xs rounded shadow-lg border border-border opacity-0 group-hover/badge:opacity-100 pointer-events-none transition-opacity z-10 break-words text-center">
-                          {result.reason}
-                        </div>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle className="text-emerald-400">{Math.round(result.confidence * 100)}% Match Insights</DialogTitle>
+                          </DialogHeader>
+                          <div className="text-sm text-foreground leading-relaxed">
+                            {result.reason}
+                          </div>
+                        </DialogContent>
                       )}
-                    </div>
+                    </Dialog>
                   )}
                 </div>
               </div>
