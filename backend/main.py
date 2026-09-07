@@ -41,6 +41,7 @@ from agents.resume_parser import ResumeParser
 from agents.jd_validator import extract_job_team_info
 from agents.email_drafter import EmailDrafter
 from agents.semantic_matcher import calculate_semantic_similarity
+from evals import _call_llama_json
 
 from services.serper_client import SerperClient
 from agents.metadata_parser import MetadataParser
@@ -509,6 +510,49 @@ def build_poc_list(poc_profiles: list) -> list:
         for poc in poc_profiles
     ]
 
+async def evaluate_board_url(url: str, board_name: str, queue, sem, profile_dict: dict):
+    """Fetches a Job Board URL and uses a fast LLM call to validate if the top 5 jobs match the candidate."""
+    async with sem:
+        try:
+            # We fetch via firecrawl to ensure we get JS rendered listings if possible
+            jd_clean = await fetch_and_clean_jd(url)
+            if not jd_clean or len(jd_clean.strip()) < 100:
+                log(f"BOARD REJECT: Failed to scrape or too short - {url}")
+                return
+                
+            candidate_years = float(profile_dict.get("actual_years_exp", 0))
+            titles = profile_dict.get("job_titles", [])
+            
+            prompt = f"""
+            You are evaluating a Job Board Search Results page.
+            Look at the top 5 job listings on this page.
+            
+            Candidate Profile:
+            - Years Experience: {candidate_years}
+            - Target Titles: {titles}
+            - Location: {profile_dict.get('location')}
+            
+            Search Results Text (first 5000 chars):
+            {jd_clean[:5000]}
+            
+            Do these top 5 jobs GENERALLY match the candidate's seniority/experience?
+            If they ALL require significantly more experience (e.g. 5+ years for a 1 year candidate), return false.
+            If at least one or two jobs look relevant (e.g. entry level, matching title, associate role), return true.
+            
+            Return ONLY valid JSON in this format:
+            {{"is_relevant": true, "reasoning": "..."}}
+            """
+            
+            res = await asyncio.to_thread(_call_llama_json, prompt)
+            
+            if res.get("is_relevant"):
+                log(f"BOARD APPROVED: {url}")
+                await queue.put(f"data: {json.dumps({'type': 'board', 'url': url, 'boardName': board_name})}\n\n")
+            else:
+                log(f"BOARD REJECT: Results do not match candidate experience - {url}")
+        except Exception as e:
+            log(f"Board Eval Error on {url}: {e}")
+
 
 async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dict, candidate_years, stats):
     async with sem:
@@ -676,6 +720,13 @@ async def discover_jobs(req: DiscoverRequest):
             location = profile.get("location", "India")
             candidate_years = float(profile.get("actual_years_exp", 0))
             
+            # Auto-expand to Associate roles for entry level profiles
+            if candidate_years <= 3.0:
+                has_pm = any("product manager" in t.lower() for t in job_titles)
+                has_apm = any("associate product manager" in t.lower() for t in job_titles)
+                if has_pm and not has_apm:
+                    job_titles.append("Associate Product Manager")
+            
             log(f"--- Discovery Started ---")
             log(f"Titles: {job_titles}, Location: {location}, Candidate Years: {candidate_years}")
             log(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
@@ -693,7 +744,7 @@ async def discover_jobs(req: DiscoverRequest):
                 # Classify search aggregator links
                 is_board = False
                 board_name = "Job Board"
-                if "linkedin.com/jobs/search" in url:
+                if "linkedin.com/jobs/" in url and "/view/" not in url:
                     is_board = True
                     board_name = "LinkedIn"
                 elif "indeed.com" in url:
@@ -701,10 +752,9 @@ async def discover_jobs(req: DiscoverRequest):
                     board_name = "Indeed"
                 
                 if is_board:
-                    # Stream immediately as type 'board' and skip LLM
-                    async def stream_board(b_url, b_name):
-                        await queue.put(f"data: {json.dumps({'type': 'board', 'url': b_url, 'boardName': b_name})}\n\n")
-                    tasks.append(asyncio.create_task(stream_board(url, board_name)))
+                    # Evaluate the job board's top 5 results before showing it
+                    task = asyncio.create_task(evaluate_board_url(url, board_name, queue, sem, profile))
+                    tasks.append(task)
                 else:
                     task = asyncio.create_task(
                         evaluate_single_job(url, source, serper_title, queue, sem, profile, candidate_years, stats)
