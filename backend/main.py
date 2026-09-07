@@ -432,7 +432,7 @@ async def collect_job_urls(job_titles: list, location: str, remote_only: bool) -
                 title = i.get("title", "")
                 if "linkedin.com/jobs" in link:
                     is_board = "linkedin.com/jobs/" in link and "/view/" not in link
-                    if is_board and not remote_only and "remote" in title.lower():
+                    if is_board and not remote_only and ("remote" in title.lower() or "remote" in link.lower() or "f_wt=2" in link.lower()):
                         continue
                     urls.append((link, "LinkedIn", title))
             return urls
@@ -468,12 +468,32 @@ async def collect_job_urls(job_titles: list, location: str, remote_only: bool) -
             log(f"Board Search Error: {e}")
             return []
 
+    def generate_synthetic_boards():
+        boards = []
+        primary_title = job_titles[0] if job_titles else "Product Manager"
+        title_slug = primary_title.lower().replace(" ", "-")
+        loc_slug = location.lower().replace(" ", "-") if location else "india"
+        
+        # Naukri
+        nk_url = f"https://www.naukri.com/{title_slug}-jobs-in-{loc_slug}?functionAreaIdGid=10"
+        boards.append((nk_url, "Naukri", f"{primary_title} Jobs in {location} - Naukri"))
+        
+        # LinkedIn
+        li_url = f"https://www.linkedin.com/jobs/search?keywords={primary_title.replace(' ', '%20')}&location={location.replace(' ', '%20')}"
+        if remote_only:
+            li_url += "&f_WT=2"
+        boards.append((li_url, "LinkedIn", f"{primary_title} Jobs in {location} - LinkedIn"))
+        
+        return boards
+
     li_urls, nk_urls, board_urls = await asyncio.gather(
         asyncio.to_thread(search_li),
         asyncio.to_thread(search_nk),
         asyncio.to_thread(search_boards)
     )
     
+    # Inject synthetic high-quality boards first so they don't get deduplicated out
+    all_urls.extend(generate_synthetic_boards())
     all_urls.extend(li_urls)
     all_urls.extend(nk_urls)
     all_urls.extend(board_urls)
