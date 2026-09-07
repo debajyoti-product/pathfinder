@@ -35,6 +35,7 @@ export interface JobResult {
   pocProfiles?: ProfileLead[];
   confidence?: number;
   reason?: string;
+  isBoard?: boolean;
 }
 
 export interface CompanyResearch {

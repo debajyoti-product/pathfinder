@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from @/components/ui/tabs;
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, PenLine, Loader2, Briefcase, User, Building2, TrendingUp, ThumbsUp, ThumbsDown, Info } from "lucide-react";
@@ -25,6 +26,7 @@ interface JobStatus {
 
 const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
   const [results, setResults] = useState<JobResult[]>([]);
+  const [boards, setBoards] = useState<JobResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("Discovering matched jobs...");
   const [activeJobs, setActiveJobs] = useState<Record<string, JobStatus>>({});
@@ -39,6 +41,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
       if (!profile) return;
       setLoading(true);
       setResults([]);
+      setBoards([]);
       setStatus("Scanning job boards for matches & discovering profiles...");
 
       await streamDiscoverJobs(
@@ -53,6 +56,15 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
               delete next[event.id];
               return next;
             });
+          } else if (event.type === 'board') {
+            setBoards((prev) => [...prev, {
+              id: String(Math.random()),
+              company: event.boardName,
+              jobTitle: `Search Results on ${event.boardName}`,
+              url: event.url,
+              linkedin: "",
+              isBoard: true
+            } as JobResult]);
           } else if (event.type === 'status') {
             setActiveJobs((prev) => ({
               ...prev,
@@ -136,7 +148,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
         )}
       </div>
 
-      {loading && results.length === 0 && (
+      {loading && results.length === 0 && boards.length === 0 && (
         <div className="flex flex-col items-center justify-center py-10 gap-3 animate-pulse">
           <div className="flex items-end gap-1 text-primary">
             <User className="w-8 h-8 animate-bounce" />
@@ -146,8 +158,17 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {results.map((result) => (
+      <Tabs defaultValue="companies" className="w-full">
+        <div className="flex justify-center mb-6">
+          <TabsList>
+            <TabsTrigger value="companies">Companies ({results.length})</TabsTrigger>
+            <TabsTrigger value="boards">Job Boards ({boards.length})</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="companies" className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {results.map((result) => (
             <div
               key={result.id}
               className="group rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all duration-200 p-5 flex flex-col gap-4"
@@ -283,8 +304,47 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
               </Button>
             </div>
           ))}
-        </div>
-      {results.length === 0 && Object.keys(activeJobs).length === 0 && !loading && (
+          </div>
+        </TabsContent>
+
+        <TabsContent value="boards" className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {boards.map((result) => (
+              <div
+                key={result.id}
+                className="group rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all duration-200 p-5 flex flex-col gap-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Briefcase className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-foreground truncate">{result.company}</h3>
+                      <p className="text-xs text-muted-foreground truncate">{result.jobTitle}</p>
+                    </div>
+                  </div>
+                </div>
+                {result.url && (
+                  <Button variant="outline" size="sm" asChild className="w-full gap-1.5 mt-auto">
+                    <a href={result.url} target="_blank" rel="noopener noreferrer">
+                      View Jobs <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            ))}
+            {boards.length === 0 && !loading && (
+              <div className="col-span-1 md:col-span-2 rounded-xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center py-16 gap-3">
+                <Briefcase className="w-10 h-10 text-muted-foreground/40" />
+                <p className="text-muted-foreground text-sm">No job boards discovered.</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {results.length === 0 && Object.keys(activeJobs).length === 0 && boards.length === 0 && !loading && (
         <div className="rounded-xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center py-16 gap-3">
           <Briefcase className="w-10 h-10 text-muted-foreground/40" />
           <p className="text-muted-foreground text-sm">No matched jobs found for your profile.</p>

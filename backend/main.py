@@ -526,9 +526,25 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 
             await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': f'Evaluating role from {source}...'})}\n\n")
             
+            # ── GATE 0.5: Raw HTML Check for LinkedIn Closed Jobs ─────
+            if "linkedin.com/jobs/view" in url:
+                try:
+                    raw_res = await asyncio.to_thread(
+                        httpx.get, url, headers={"User-Agent": "Mozilla/5.0"}, follow_redirects=True, timeout=10
+                    )
+                    if "No longer accepting applications" in raw_res.text:
+                        stats["pre_filtered"] += 1
+                        log(f"PRE-FILTER REJECT [{source}]: LinkedIn closed banner found in HTML — URL={url[:80]}")
+                        await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
+                        return
+                except Exception as e:
+                    pass
+            
             # Step 2: Fetch and clean the JD text
             jd_clean = await fetch_and_clean_jd(url)
-            if not jd_clean:
+            if not jd_clean or len(jd_clean.strip()) < 100:
+                stats["pre_filtered"] += 1
+                log(f"PRE-FILTER REJECT [{source}]: JD is too short or empty (likely blocked) — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
@@ -674,10 +690,26 @@ async def discover_jobs(req: DiscoverRequest):
             
             tasks = []
             for url, source, serper_title in urls:
-                task = asyncio.create_task(
-                    evaluate_single_job(url, source, serper_title, queue, sem, profile, candidate_years, stats)
-                )
-                tasks.append(task)
+                # Classify search aggregator links
+                is_board = False
+                board_name = "Job Board"
+                if "linkedin.com/jobs/search" in url:
+                    is_board = True
+                    board_name = "LinkedIn"
+                elif "indeed.com" in url:
+                    is_board = True
+                    board_name = "Indeed"
+                
+                if is_board:
+                    # Stream immediately as type 'board' and skip LLM
+                    async def stream_board(b_url, b_name):
+                        await queue.put(f"data: {json.dumps({'type': 'board', 'url': b_url, 'boardName': b_name})}\n\n")
+                    tasks.append(asyncio.create_task(stream_board(url, board_name)))
+                else:
+                    task = asyncio.create_task(
+                        evaluate_single_job(url, source, serper_title, queue, sem, profile, candidate_years, stats)
+                    )
+                    tasks.append(task)
                 
             # Create a supervisor task to push a sentinel when all workers finish
             async def worker_supervisor():
