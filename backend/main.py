@@ -747,14 +747,20 @@ async def discover_jobs(req: DiscoverRequest):
                 if "linkedin.com/jobs/" in url and "/view/" not in url:
                     is_board = True
                     board_name = "LinkedIn"
-                elif "indeed.com" in url:
+                elif "indeed.com" in url and "/viewjob" not in url and "/rc/" not in url:
                     is_board = True
                     board_name = "Indeed"
+                elif "naukri.com" in url and "/job-listings-" not in url and "naukri.com/job-listings" not in url:
+                    # Naukri search pages like naukri.com/product-manager-jobs
+                    if "jobs" in url.split("naukri.com/")[-1].lower() and "job-listings" not in url:
+                        is_board = True
+                        board_name = "Naukri"
                 
                 if is_board:
-                    # Evaluate the job board's top 5 results before showing it
-                    task = asyncio.create_task(evaluate_board_url(url, board_name, queue, sem, profile))
-                    tasks.append(task)
+                    # Stream board immediately — no LLM call, preserves rate limit budget for individual jobs
+                    async def stream_board(b_url, b_name):
+                        await queue.put(f"data: {json.dumps({'type': 'board', 'url': b_url, 'boardName': b_name})}\n\n")
+                    tasks.append(asyncio.create_task(stream_board(url, board_name)))
                 else:
                     task = asyncio.create_task(
                         evaluate_single_job(url, source, serper_title, queue, sem, profile, candidate_years, stats)
@@ -849,8 +855,14 @@ async def draft_email(req: DraftRequest):
         intel_snippets = "\n".join(snippets)
         NEWS_CACHE[company_key] = intel_snippets
 
-    # Get user first name from poc profiles or default
-    profile_summary = f"{req.profile.job_titles[0] if req.profile.job_titles else 'Candidate'} with {req.profile.actual_years_exp} years exp. Skills: {', '.join(req.profile.skills)}"
+    # Build a detailed profile summary so the LLM doesn't hallucinate skills
+    skills_list = ', '.join(req.profile.skills) if req.profile.skills else 'General'
+    profile_summary = (
+        f"{req.profile.job_titles[0] if req.profile.job_titles else 'Candidate'} "
+        f"with {req.profile.actual_years_exp} years of experience. "
+        f"EXACT Skills (DO NOT invent skills not listed here): {skills_list}. "
+        f"Industry: {req.profile.industry}."
+    )
 
     result = email_drafter.draft(
         profile_summary=profile_summary,

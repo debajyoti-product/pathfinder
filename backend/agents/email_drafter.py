@@ -57,13 +57,15 @@ Using the provided snippets and your internal knowledge base about {company}, ge
 Strictly use the following template to generate the email body. DO NOT add "Subject:". Replace the bracketed placeholders with contextually accurate information.
 The tone should be peer-to-peer and professional.
 
+CRITICAL RULE: You MUST ONLY reference skills, experiences, and tools that are EXPLICITLY listed in the Candidate section above. DO NOT invent, assume, or hallucinate any skills the candidate does not have. If the candidate doesn't have a specific skill, do not mention it.
+
 Template:
 Hello {poc_name}, Debajyoti here. Hope you are doing well. I was wondering if you are currently hiring for any junior product roles.
-[Utilize the resume experience & summary to create an active phrasing sentence like: "I have X years of experience in building products for X users & Y revenue"]
+[Utilize ONLY the candidate's listed skills and experience to create an active phrasing sentence like: "I have X years of experience in building products for X users & Y revenue"]
 Why {company}?
-[Bullet 1: Highly reflect the candidate's match against the skills, experience, requirements & industry of the company]
-[Bullet 2: Sharp, brief & unique point]
-[Bullet 3: Sharp, brief & unique point]
+- [Bullet 1: Match candidate's ACTUAL listed skills against the company's domain/industry. Be specific.]
+- [Bullet 2: Sharp, brief & unique point using only skills from the candidate's profile]
+- [Bullet 3: Sharp, brief & unique point using only skills from the candidate's profile]
 If my profile seems suitable, let me know if we can explore synergies.
 
 Regards

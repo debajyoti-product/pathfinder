@@ -76,7 +76,17 @@ def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = Tr
                 except httpx.HTTPStatusError as e:
                     last_error = {"error": f"API Error ({model}): {e.response.status_code} - {e.response.text}"}
                     if e.response.status_code in [503, 500, 429] and attempt < 1:
-                        time.sleep(1)
+                        # Parse actual wait time from Groq error message
+                        wait_time = 6  # default wait
+                        try:
+                            err_text = e.response.text
+                            import re as _re
+                            m = _re.search(r'try again in (\d+(?:\.\d+)?)s', err_text)
+                            if m:
+                                wait_time = min(float(m.group(1)) + 1, 15)
+                        except Exception:
+                            pass
+                        time.sleep(wait_time)
                         continue
                     break
                 except Exception as e:
