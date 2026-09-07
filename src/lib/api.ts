@@ -163,7 +163,7 @@ export async function draftEmail(
   jobUrl?: string
 ): Promise<{email: string, news: any[]}> {
   const payload = {
-    job_title: profile.targetRoles[0] || "Product Manager",
+    job_titles: profile.targetRoles.length > 0 ? profile.targetRoles : ["Product Manager"],
     skills: profile.coreSkills,
     actual_years_exp: smartRoundYears(profile.actualYears || 0),
     search_range: [profile.experienceRange],

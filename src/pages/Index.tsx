@@ -116,19 +116,19 @@ const Index = () => {
             ))}
           </TabsList>
 
-          <TabsContent value="home">
+          <TabsContent value="home" forceMount hidden={activeTab !== "home"}>
             <HomeTab onUpload={handleUpload} isUploading={isUploading} />
           </TabsContent>
 
-          <TabsContent value="profile">
+          <TabsContent value="profile" forceMount hidden={activeTab !== "profile"}>
             <ProfileTab initialProfile={profile} onConfirm={handleConfirm} onCancel={handleCancel} />
           </TabsContent>
 
-          <TabsContent value="results">
+          <TabsContent value="results" forceMount hidden={activeTab !== "results"}>
             <ResultsTab profile={profile} onGenerate={handleGenerate} />
           </TabsContent>
 
-          <TabsContent value="drafting">
+          <TabsContent value="drafting" forceMount hidden={activeTab !== "drafting"}>
             {draftTarget && (
               <DraftingTab result={draftTarget} profile={profile} onBack={handleBackToResults} />
             )}
