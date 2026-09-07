@@ -679,7 +679,7 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 "linkedin": url,
                 "team": team_name,
                 "requiredExperience": req_years_str,
-                "reason": f"Exp: {eval_res.get('reasoning_trace', {}).get('experience_gate', '')} | Loc: {eval_res.get('reasoning_trace', {}).get('location_gate', '')}",
+                "reason": eval_res.get("candidate_feedback", "Strong match for your profile based on experience and skills."),
                 "confidence": final_score,
                 "pocProfiles": []
             }

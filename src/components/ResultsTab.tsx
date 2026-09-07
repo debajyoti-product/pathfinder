@@ -121,42 +121,28 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex flex-col gap-1 items-center justify-center">
-        {/* Funnel Stats */}
-        {stats && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-4 py-2.5 rounded-full border border-border/50 w-fit shadow-sm">
-            <span>Searched <strong>{stats.searched}</strong> postings &rarr; <strong>{stats.searched - stats.rejected}</strong> matched criteria</span>
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="hover:text-foreground transition-colors cursor-pointer ml-1 outline-none"><Info className="w-3.5 h-3.5" /></button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] bg-background/80 backdrop-blur-xl border-border/50">
-                <DialogHeader>
-                  <DialogTitle>Exclusion Criteria</DialogTitle>
-                </DialogHeader>
-                <div className="text-sm text-muted-foreground pt-2">
-                  <ul className="list-disc pl-5 space-y-2">
-                    <li>Expired or closed jobs</li>
-                    <li>Don't match seniority/experience level</li>
-                    <li>Different role</li>
-                    <li>Don't match remote work (if applicable)</li>
-                  </ul>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
+      <div className="flex justify-center mb-2">
+        <Dialog>
+          <DialogTrigger asChild>
+            <button className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer outline-none flex items-center gap-1.5 bg-muted/30 px-3 py-1.5 rounded-full border border-border/50">
+              <Info className="w-3.5 h-3.5" /> Exclusion criteria
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px] bg-background/80 backdrop-blur-xl border-border/50">
+            <DialogHeader>
+              <DialogTitle>Exclusion Criteria</DialogTitle>
+            </DialogHeader>
+            <div className="text-sm text-muted-foreground pt-2">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>Expired or closed jobs</li>
+                <li>Don't match seniority/experience level</li>
+                <li>Different role</li>
+                <li>Don't match remote work (if applicable)</li>
+              </ul>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {loading && results.length === 0 && boards.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-10 gap-3 animate-pulse">
-          <div className="flex items-end gap-1 text-primary">
-            <User className="w-8 h-8 animate-bounce" />
-            <Briefcase className="w-5 h-5 mb-1" />
-          </div>
-          <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">finding matches for you</p>
-        </div>
-      )}
 
       <Tabs defaultValue="companies" className="w-full">
         <div className="flex justify-center mb-6">
@@ -167,6 +153,15 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
         </div>
 
         <TabsContent value="companies" className="mt-0">
+          {loading && results.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 animate-pulse">
+              <div className="flex items-end gap-1 text-primary">
+                <User className="w-8 h-8 animate-bounce" />
+                <Briefcase className="w-5 h-5 mb-1" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">finding matches for you</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {results.map((result) => (
             <div
@@ -316,6 +311,15 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
         </TabsContent>
 
         <TabsContent value="boards" className="mt-0">
+          {loading && boards.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 animate-pulse">
+              <div className="flex items-end gap-1 text-primary">
+                <User className="w-8 h-8 animate-bounce" />
+                <Briefcase className="w-5 h-5 mb-1" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">finding matches for you</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {boards.map((result) => (
               <div
