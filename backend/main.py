@@ -408,7 +408,7 @@ def build_location_query(location: str) -> str:
         return f'"{aliases[0]}"'
     return "(" + " OR ".join(f'"{a}"' for a in aliases) + ")"
 
-async def collect_job_urls(job_titles: list, location: str) -> list:
+async def collect_job_urls(job_titles: list, location: str, remote_only: bool) -> list:
     """Step 1: Collect job URLs from multiple sources concurrently.
     
     Returns list of (url, source, serper_title) tuples.
@@ -423,20 +423,26 @@ async def collect_job_urls(job_titles: list, location: str) -> list:
     
     def search_li():
         try:
-            query = f'site:linkedin.com/jobs/view {titles_query} {loc_query}'.strip()
+            query = f'site:linkedin.com/jobs/view {titles_query} {loc_query} -site:glassdoor.com -glassdoor'.strip()
             res = serper_client.search(query, tbs=RECENCY_FILTER)
-            return [
-                (i.get("link"), "LinkedIn", i.get("title", ""))
-                for i in res.get("organic", [])
-                if "linkedin.com/jobs" in i.get("link", "")
-            ]
+            
+            urls = []
+            for i in res.get("organic", []):
+                link = i.get("link", "")
+                title = i.get("title", "")
+                if "linkedin.com/jobs" in link:
+                    is_board = "linkedin.com/jobs/" in link and "/view/" not in link
+                    if is_board and not remote_only and "remote" in title.lower():
+                        continue
+                    urls.append((link, "LinkedIn", title))
+            return urls
         except Exception as e:
             log(f"LinkedIn Search Error: {e}")
             return []
             
     def search_nk():
         try:
-            query = f'site:naukri.com {titles_query} {loc_query}'.strip()
+            query = f'site:naukri.com {titles_query} {loc_query} -site:glassdoor.com -glassdoor'.strip()
             res = serper_client.search(query, tbs=RECENCY_FILTER)
             return [
                 (i.get("link"), "Naukri", i.get("title", ""))
@@ -449,7 +455,7 @@ async def collect_job_urls(job_titles: list, location: str) -> list:
 
     def search_boards():
         try:
-            query = f'{titles_query} {loc_query} (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com)'.strip()
+            query = f'{titles_query} {loc_query} (site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com OR site:zohorecruit.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com) -site:glassdoor.com -glassdoor'.strip()
             res = serper_client.search(query) # No tbs for boards, let them stay open longer
             urls = []
             for item in res.get("organic", []):
@@ -732,7 +738,8 @@ async def discover_jobs(req: DiscoverRequest):
             log(f"Firecrawl Key Present: {bool(FIRECRAWL_API_KEY)}")
             
             # Fix 1: Collect URLs using job_titles
-            urls = await collect_job_urls(job_titles, location)
+            remote_only = profile.get("remote_only", False)
+            urls = await collect_job_urls(job_titles, location, remote_only)
             log(f"Total Unique URLs found: {len(urls)}")
             
             stats = {"jobs_found": 0, "pre_filtered": 0, "post_filtered": 0}

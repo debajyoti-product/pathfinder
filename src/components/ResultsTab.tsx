@@ -221,7 +221,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                           <DialogHeader>
                             <DialogTitle className="text-emerald-400">{Math.round(result.confidence * 100)}% Match Insights</DialogTitle>
                           </DialogHeader>
-                          <div className="text-sm text-foreground leading-relaxed">
+                          <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                             {result.reason}
                           </div>
                         </DialogContent>

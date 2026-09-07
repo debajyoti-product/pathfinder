@@ -71,7 +71,7 @@ Extract the EXACT experience requirement from the JD. Then apply these rules:
     "experience_gate": "Passed/Failed — JD requires [X], candidate has {total_years} yrs. [Reason]",
     "remote_gate": "Passed/Failed — [Reason]"
   }},
-  "candidate_feedback": "string (Assume you are a 3rd party hiring agent explaining to the candidate why this job is a strong or weak fit for them. Provide structured insights referencing their specific skills ({skills_str}) vs the JD's requirements. Keep it under 3 sentences, be direct and objective.)",
+  "candidate_feedback": "string (Format EXACTLY with these 3 lines: \\nCore skills listed- <comma separated skills matching candidate> (<X>/<Y> matching)\\nMissing skills- <comma separated required skills the candidate lacks> (<Z>/<Y> missing)\\nExperience- <JD years/band or 'missing'> (<'within range' or 'missing' or 'out of range'>))",
   "confidence": number (0.0-1.0),
   "companyName": "string or null",
   "teamName": "string or null",
