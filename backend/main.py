@@ -65,7 +65,7 @@ app.add_middleware(
 async def startup_event():
     log("=== Pathfinder AI Suite Booting ===")
     from config import GROQ_API_KEY, SERPER_API_KEY, FIRECRAWL_API_KEY
-    log(f"Qwen 3.6 27B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
+    log(f"GPT OSS 120B (Groq): {'ENABLED' if GROQ_API_KEY else 'MISSING (Using GROQ_API_KEY)'}")
     log(f"Serper.dev: {'ENABLED' if SERPER_API_KEY else 'MISSING'}")
     log(f"Firecrawl: {'ENABLED' if FIRECRAWL_API_KEY else 'MISSING'}")
     if not GROQ_API_KEY:
@@ -563,8 +563,8 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
 
-            await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': 'Analyzing fit with Qwen...'})}\n\n")
-            # Step 3: Validate using Agent 3 (Qwen)
+            await queue.put(f"data: {json.dumps({'type': 'status', 'jobId': hash(url), 'company': serper_title[:30], 'status': 'Analyzing fit with GPT OSS 120B...'})}\n\n")
+            # Step 3: Validate using Agent 3 (GPT OSS 120B)
             eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile_dict)
             
             if eval_res.get("isValidRange") is not True:
@@ -598,10 +598,10 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             team_name = eval_res.get("teamName")
             
             # ── SCORE BLENDING & PENALTY ────────────────────────────────────
-            qwen_conf = eval_res.get("confidence", 0.0)
+            gpt_conf = eval_res.get("confidence", 0.0)
             
-            # Combine the true semantic relevance with Qwen's logical confidence
-            final_score = (semantic_score * 0.6) + (qwen_conf * 0.4)
+            # Combine the true semantic relevance with GPT OSS 120B's logical confidence
+            final_score = (semantic_score * 0.6) + (gpt_conf * 0.4)
             
             # Apply requested penalty mechanic (threshold 0.70)
             if final_score < 0.70:

@@ -3,7 +3,7 @@ from evals import _call_qwen_json
 
 def extract_job_team_info(jd_text: str, user_profile: dict) -> dict:
     """
-    Agent 3: Cynical Recruitment Gatekeeper (Qwen 3 32B)
+    Agent 3: Cynical Recruitment Gatekeeper (GPT OSS 120B)
     Applies 3 strict hard gates: Experience Match (P0), Geography, and Remote Policy.
     Also extracts companyName from the JD for downstream POC search.
     """

@@ -6,15 +6,15 @@ from config import GROQ_API_KEY
 from services.usage_tracker import log_usage, is_over_limit
 
 LLAMA_MODELS = [
-    "qwen/qwen3.6-27b"
+    "openai/gpt-oss-120b"
 ]
 
 LLAMA_70B_MODELS = [
-    "qwen/qwen3.6-27b"
+    "openai/gpt-oss-120b"
 ]
 
 QWEN_MODELS = [
-    "qwen/qwen3.6-27b"
+    "openai/gpt-oss-120b"
 ]
 
 def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = True) -> dict:
@@ -48,7 +48,7 @@ def _call_llm_json(prompt: str, models: list, api_key: str, json_mode: bool = Tr
                         last_error = {"error": "API returned invalid format", "raw": result}
                         break
                     
-                    # Strip <think> tags from reasoning models (Qwen, DeepSeek-R1)
+                    # Strip <think> tags from reasoning models (GPT OSS 120B, DeepSeek-R1)
                     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
                     
                     # Robust JSON extraction
