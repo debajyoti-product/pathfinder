@@ -89,7 +89,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
           <div className="h-4 w-px bg-border" />
           <div>
             <span className="text-sm text-muted-foreground">Drafting for </span>
-            <span className="text-sm font-semibold text-primary">{result.company}</span>
+            <span className="text-sm font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)]">{result.company}</span>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[500px]">
@@ -138,7 +138,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
               <span className="text-sm text-muted-foreground"> at </span>
             </>
           )}
-          <span className="text-sm font-semibold text-primary">{result.company}</span>
+          <span className="text-sm font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)]">{result.company}</span>
         </div>
       </div>
 
@@ -199,7 +199,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{wordCount} words</span>
             <Button 
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="gap-2 bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] text-white hover:opacity-95 shadow-sm font-medium"
               onClick={handleCopy}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

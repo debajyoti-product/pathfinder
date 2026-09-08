@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Compass, User, List, PenTool } from "lucide-react";
+import { Compass } from "lucide-react";
 import HomeTab from "@/components/HomeTab";
 import ProfileTab from "@/components/ProfileTab";
 import ResultsTab from "@/components/ResultsTab";
 import DraftingTab from "@/components/DraftingTab";
 import { ProfileData, JobResult } from "@/lib/mockData";
 import { parseResume } from "@/lib/api";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -68,10 +67,10 @@ const Index = () => {
   };
 
   const tabs = [
-    { value: "home", label: "Home", icon: Compass },
-    { value: "profile", label: "Profile", icon: User },
-    { value: "results", label: "Results", icon: List },
-    { value: "drafting", label: "Drafting", icon: PenTool },
+    { value: "home", label: "Home" },
+    { value: "profile", label: "Profile" },
+    { value: "results", label: "Results" },
+    { value: "drafting", label: "Drafting" },
   ];
 
   return (
@@ -89,12 +88,11 @@ const Index = () => {
               }} 
               className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
             >
-              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-                <Compass className="w-4 h-4 text-primary-foreground" />
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] flex items-center justify-center shadow-sm">
+                <Compass className="w-4 h-4 text-white" />
               </div>
               <span className="text-lg font-bold tracking-tight text-foreground -mb-0.5">Pathfinder</span>
             </button>
-            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -102,16 +100,15 @@ const Index = () => {
       {/* Main */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full max-w-2xl mx-auto h-auto bg-muted/30 backdrop-blur-xl border border-border/50 p-2 mb-8 rounded-full flex shadow-sm">
-            {tabs.map((tab, idx) => (
+          <TabsList className="w-full max-w-2xl mx-auto h-auto bg-muted/40 backdrop-blur-xl border border-border/60 p-1.5 mb-8 rounded-full flex shadow-sm">
+            {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
                 disabled={!tabEnabled[tab.value]}
-                className="flex-1 rounded-full gap-2 py-2.5 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-md text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-500 ease-out"
+                className="flex-1 rounded-full py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[hsl(221,83%,53%)] data-[state=active]:to-[hsl(160,84%,20%)] data-[state=active]:text-white data-[state=active]:shadow-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 ease-out font-medium text-sm"
               >
-                <tab.icon className="w-4 h-4" />
-                <span className="hidden sm:inline font-medium tracking-wide">{tab.label}</span>
+                <span className="tracking-wide">{tab.label}</span>
               </TabsTrigger>
             ))}
           </TabsList>

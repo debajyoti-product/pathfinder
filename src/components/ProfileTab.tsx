@@ -98,7 +98,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
           <p className="text-muted-foreground text-sm mt-1">Refine your target roles and experience summary.</p>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-primary">{profile.experienceRange}</div>
+          <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)]">{profile.experienceRange}</div>
           <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Relevant Experience</div>
         </div>
       </div>
@@ -108,7 +108,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
         <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Identified Roles</h3>
-            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Toggle to adjust total experience</span>
+            <span className="text-[10px] bg-gradient-to-r from-[hsl(221,83%,53%)]/10 to-[hsl(160,84%,20%)]/15 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-semibold">Toggle to adjust total experience</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {profile.roles.map((role, idx) => (
@@ -117,7 +117,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
                 onClick={() => toggleRole(idx)}
                 className={`group relative flex flex-col items-start p-3.5 rounded-xl border-2 transition-all duration-200 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   role.active
-                    ? 'bg-primary/5 border-primary shadow-sm'
+                    ? 'bg-primary/5 border-primary shadow-sm ring-1 ring-primary/20'
                     : 'bg-card border-border hover:border-primary/50'
                 }`}
               >
@@ -130,7 +130,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
                     )}
                   </div>
                   <div className="flex flex-col flex-1 min-w-0 pr-6">
-                    <span className={`text-sm font-semibold leading-tight ${role.active ? 'text-primary' : 'text-foreground'}`}>
+                    <span className={`text-sm leading-tight ${role.active ? 'text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] font-bold' : 'font-semibold text-foreground'}`}>
                       {role.title}
                     </span>
                     <span className={`text-xs mt-1 font-medium ${role.active ? 'text-primary/80' : 'text-muted-foreground'}`}>
@@ -200,9 +200,9 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Competencies</h3>
                 <div className="flex flex-wrap items-center gap-2">
                   {competencies.map((skill) => (
-                    <Badge key={skill} className="gap-1.5 pr-1.5 bg-primary/10 text-primary border-primary/20 py-1.5 px-3.5 rounded-full text-sm font-medium">
+                    <Badge key={skill} className="gap-1.5 pr-1.5 bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] text-white border-none py-1.5 px-3.5 rounded-full text-sm font-medium shadow-sm">
                       {skill}
-                      <button onClick={() => removeSkill(skill)} className="hover:text-primary/70 transition-colors bg-primary/10 rounded-full p-0.5">
+                      <button onClick={() => removeSkill(skill)} className="hover:text-white/80 transition-colors bg-white/20 rounded-full p-0.5">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </Badge>
