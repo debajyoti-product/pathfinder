@@ -468,12 +468,56 @@ async def collect_job_urls(job_titles: list, location: str, remote_only: bool) -
             log(f"Board Search Error: {e}")
             return []
 
-    li_urls, nk_urls, board_urls = await asyncio.gather(
+    async def scrape_synthetic_boards():
+        if not firecrawl_app:
+            return []
+            
+        extracted = []
+        loc_slug = location.lower().replace(" ", "-") if location else "india"
+        
+        # Loop per role as requested, capped at top 2
+        for title in job_titles[:2]:
+            title_slug = title.lower().replace(" ", "-")
+            nk_url = f"https://www.naukri.com/{title_slug}-jobs-in-{loc_slug}?functionAreaIdGid=10"
+            li_url = f"https://www.linkedin.com/jobs/search?keywords={title.replace(' ', '%20')}&location={location.replace(' ', '%20')}"
+            if remote_only:
+                li_url += "&f_WT=2"
+                
+            # Scrape Naukri listing
+            try:
+                res = await asyncio.to_thread(firecrawl_app.scrape_url, nk_url, formats=["markdown"])
+                md_text = getattr(res, 'markdown', None) or (res.get("markdown") if isinstance(res, dict) else "")
+                if md_text:
+                    # Extract individual job-detail links
+                    links = re.findall(r'\]\((https://www\.naukri\.com.*?/job-listings-[^\)]+)\)', md_text)
+                    for link in list(dict.fromkeys(links))[:5]: # unique top 5
+                        extracted.append((link, "Naukri-Direct", f"{title} (from Search)"))
+            except Exception as e:
+                log(f"Naukri Scrape Error for {title}: {e}")
+                
+            # Scrape LinkedIn listing
+            try:
+                res = await asyncio.to_thread(firecrawl_app.scrape_url, li_url, formats=["markdown"])
+                md_text = getattr(res, 'markdown', None) or (res.get("markdown") if isinstance(res, dict) else "")
+                if md_text:
+                    links = re.findall(r'\]\((https://[a-z]{0,2}\.?linkedin\.com/jobs/view/[^\)]+)\)', md_text)
+                    for link in list(dict.fromkeys(links))[:5]:
+                        # Strip query params to avoid tracking clutter
+                        clean_link = link.split('?')[0]
+                        extracted.append((clean_link, "LinkedIn-Direct", f"{title} (from Search)"))
+            except Exception as e:
+                log(f"LinkedIn Scrape Error for {title}: {e}")
+                
+        return extracted
+
+    li_urls, nk_urls, board_urls, synthetic_urls = await asyncio.gather(
         asyncio.to_thread(search_li),
         asyncio.to_thread(search_nk),
-        asyncio.to_thread(search_boards)
+        asyncio.to_thread(search_boards),
+        scrape_synthetic_boards()
     )
     
+    all_urls.extend(synthetic_urls)
     all_urls.extend(li_urls)
     all_urls.extend(nk_urls)
     all_urls.extend(board_urls)

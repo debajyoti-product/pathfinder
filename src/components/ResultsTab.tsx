@@ -109,7 +109,14 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex justify-center mb-2">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          {loading && (
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent border-dotted" />
+          )}
+          <h2 className="text-xl font-bold">Companies ({results.length})</h2>
+        </div>
+        
         <Dialog>
           <DialogTrigger asChild>
             <button className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer outline-none flex items-center gap-1.5 bg-muted/30 px-3 py-1.5 rounded-full border border-border/50">
@@ -130,10 +137,6 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-
-      <div className="flex justify-center mb-6">
-        <h2 className="text-xl font-bold">Companies ({results.length})</h2>
       </div>
 
       <div className="mt-0">
