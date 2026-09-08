@@ -74,10 +74,12 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="h-screen w-screen p-4 md:p-6 bg-background flex overflow-hidden">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-1 w-full h-full gap-4 md:gap-6 overflow-hidden" orientation="vertical">
+        {/* Sidebar */}
+        <aside className="w-64 md:w-72 shrink-0 flex flex-col gap-4 h-full">
+          {/* Logo */}
+          <div className="px-2 py-1 flex items-center shrink-0">
             <button 
               onClick={() => {
                 setActiveTab("home");
@@ -86,52 +88,55 @@ const Index = () => {
                 setResumeUploaded(false);
                 setProfileConfirmed(false);
               }} 
-              className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
             >
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] flex items-center justify-center shadow-sm">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] flex items-center justify-center shadow-md">
                 <Compass className="w-4 h-4 text-white" />
               </div>
-              <span className="text-lg font-bold tracking-tight text-foreground -mb-0.5">Pathfinder</span>
+              <span className="text-xl font-bold tracking-tight text-foreground">Pathfinder</span>
             </button>
           </div>
-        </div>
-      </header>
 
-      {/* Main */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full max-w-2xl mx-auto h-auto bg-muted/40 backdrop-blur-xl border border-border/60 p-1.5 mb-8 rounded-full flex shadow-sm">
-            {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                disabled={!tabEnabled[tab.value]}
-                className="flex-1 rounded-full py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[hsl(221,83%,53%)] data-[state=active]:to-[hsl(160,84%,20%)] data-[state=active]:text-white data-[state=active]:shadow-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 ease-out font-medium text-sm"
-              >
-                <span className="tracking-wide">{tab.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          {/* Navigation - Separate Enclosed Card */}
+          <div className="bg-card border border-border rounded-2xl p-3 shadow-md flex-1 flex flex-col">
+            <TabsList className="w-full h-auto bg-transparent border-none p-0 flex flex-col gap-1.5 shadow-none">
+              {tabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  disabled={!tabEnabled[tab.value]}
+                  className="w-full justify-start px-4 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-[hsl(221,83%,53%)] data-[state=active]:to-[hsl(160,84%,20%)] data-[state=active]:text-white data-[state=active]:shadow-sm text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-muted-foreground transition-all duration-300 ease-out font-semibold text-xs tracking-wider uppercase text-left"
+                >
+                  <span className="tracking-wider uppercase">{tab.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+        </aside>
 
-          <TabsContent value="home" forceMount hidden={activeTab !== "home"}>
-            <HomeTab onUpload={handleUpload} isUploading={isUploading} />
-          </TabsContent>
+        {/* Main Content - Separate Enclosed Card (Center Aligned) */}
+        <main className="flex-1 h-full bg-card border border-border rounded-2xl shadow-md overflow-y-auto flex flex-col items-center">
+          <div className="w-full max-w-5xl p-6 lg:p-10 flex-1 flex flex-col items-center">
+            <TabsContent value="home" forceMount hidden={activeTab !== "home"} className={`mt-0 w-full flex-1 flex-col items-center justify-center ${activeTab === "home" ? "flex" : "hidden"}`}>
+              <HomeTab onUpload={handleUpload} isUploading={isUploading} />
+            </TabsContent>
 
-          <TabsContent value="profile" forceMount hidden={activeTab !== "profile"}>
-            <ProfileTab initialProfile={profile} onConfirm={handleConfirm} onCancel={handleCancel} />
-          </TabsContent>
+            <TabsContent value="profile" forceMount hidden={activeTab !== "profile"} className={`mt-0 w-full ${activeTab === "profile" ? "block" : "hidden"}`}>
+              <ProfileTab initialProfile={profile} onConfirm={handleConfirm} onCancel={handleCancel} />
+            </TabsContent>
 
-          <TabsContent value="results" forceMount hidden={activeTab !== "results"}>
-            <ResultsTab profile={profile} onGenerate={handleGenerate} />
-          </TabsContent>
+            <TabsContent value="results" forceMount hidden={activeTab !== "results"} className={`mt-0 w-full ${activeTab === "results" ? "block" : "hidden"}`}>
+              <ResultsTab profile={profile} onGenerate={handleGenerate} />
+            </TabsContent>
 
-          <TabsContent value="drafting" forceMount hidden={activeTab !== "drafting"}>
-            {draftTarget && (
-              <DraftingTab result={draftTarget} profile={profile} onBack={handleBackToResults} />
-            )}
-          </TabsContent>
-        </Tabs>
-      </main>
+            <TabsContent value="drafting" forceMount hidden={activeTab !== "drafting"} className={`mt-0 w-full ${activeTab === "drafting" ? "block" : "hidden"}`}>
+              {draftTarget && (
+                <DraftingTab result={draftTarget} profile={profile} onBack={handleBackToResults} />
+              )}
+            </TabsContent>
+          </div>
+        </main>
+      </Tabs>
     </div>
   );
 };

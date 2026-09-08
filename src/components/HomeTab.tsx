@@ -68,13 +68,12 @@ const HomeTab = ({ onUpload, isUploading = false }: HomeTabProps) => {
         onDragOver={handleDrag}
         onDrop={handleDrop}
         className={`
-          relative group cursor-pointer w-full max-w-lg rounded-2xl p-[2px]
-          transition-all duration-300 ease-out shadow-sm hover:shadow-xl hover:shadow-primary/10
-          bg-gradient-to-br from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)]
-          ${isDragging ? "scale-[1.02] shadow-2xl shadow-primary/25" : ""}
+          relative group cursor-pointer w-full max-w-lg rounded-2xl
+          transition-all duration-300 ease-out
+          ${isDragging ? "scale-[1.02]" : ""}
         `}
       >
-        <div className="w-full h-full bg-card rounded-[14px] p-12 flex flex-col items-center gap-5 text-center transition-all group-hover:bg-card/95">
+        <div className="w-full h-full p-12 flex flex-col items-center gap-5 text-center transition-all">
           <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
           
           <div
@@ -93,7 +92,7 @@ const HomeTab = ({ onUpload, isUploading = false }: HomeTabProps) => {
           
           <div>
             <p className="text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] font-bold text-lg tracking-tight">
-              {isDragging ? "Release to upload" : "Drop your resume here"}
+              {isDragging ? "Release to upload" : "Drop your resume"}
             </p>
             <p className="text-muted-foreground text-xs mt-1.5 font-semibold tracking-wider uppercase">
               PDF only — max 10MB
