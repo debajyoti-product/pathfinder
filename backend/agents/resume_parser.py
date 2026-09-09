@@ -20,15 +20,16 @@ Task
 3. **Experience Normalization:** For each career track, calculate the total duration in years and map it to a specific range bucket.
 
 Normalization Rules (Strict)
-- **Role Type:** Group similar titles into logical categories (e.g., "Senior PM" and "Associate PM" both belong to the "Product Manager" category).
+- **Role Type:** Group similar titles into logical categories.
 - **Date Extraction:** Focus entirely on extracting the precise `start_date` and `end_date` (MM/YYYY) from the "Experience" section. A Python backend script will override your math, so just fetch the dates accurately!
 - **Experience Range Buckets:** Give your best estimate. The backend will override this too.
-- **Skills:** Extract as individual keywords from dedicated Skills/Tools section.
+- **Core Competencies:** Extract ONLY core functional and product skills (e.g., PRD, Market Research, AI Product Strategy, Evaluation/Evals, Prompt Engineering). Do NOT include tools or raw technologies here.
+- **Tools & Technologies:** Extract actual tools (e.g., Replit, Lovable, Jira, Figma) and raw technologies (e.g., AI, LLM, Python, React) into this separate list.
 
 Critical Calculation Constraints
 1. **Source Lockdown:** Extract experience dates ONLY from the "Experience" section. STRICTLY IGNORE any years mentioned in the "Summary," "About Me," or "Professional Profile" sections.
 2. **No Duplicate Extraction:** Do not list the same company/role combination twice.
-3. **SHORT REMINDER:** You do not need to do complex date math. Just accurately extract the `roles` array with start/end dates. The Python backend will calculate the exact duration and aggregate the `experience_summary`.
+3. **SHORT REMINDER:** You do not need to do complex date math. Just accurately extract the `roles` array with start/end dates.
 
 Constraints
 - Format: Return ONLY valid JSON. No conversational filler.
@@ -48,7 +49,10 @@ You MUST output ONLY a valid JSON object wrapped in a markdown JSON block. Do no
       "experience_range": "string (e.g., '1-3 years')"
     }}
   ],
-  "skills": ["string", "string"],
+  "skills": {{
+    "core_competencies": ["string", "string"],
+    "tools_technologies": ["string", "string"]
+  }},
   "industry": "string (e.g., Fintech, Logistics)",
   "roles": [
     {{

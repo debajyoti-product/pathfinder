@@ -55,7 +55,8 @@ export async function parseResume(file: File): Promise<ProfileData> {
   const targetRoles = parsedRoles.map((r: any) => r.title);
 
   return {
-    coreSkills: data.skills || [],
+    coreSkills: data.skills?.core_competencies || [],
+    tools: data.skills?.tools_technologies || [],
     targetRoles: targetRoles,
     roles: parsedRoles,
     experienceRange: exactRange,
@@ -74,7 +75,7 @@ export async function streamDiscoverJobs(
 ) {
   const payload = {
     job_titles: profile.targetRoles.length > 0 ? profile.targetRoles : ["Product Manager"],
-    skills: profile.coreSkills,
+    skills: [...(profile.coreSkills || []), ...(profile.tools || [])],
     actual_years_exp: smartRoundYears(profile.actualYears || 0),
     search_range: [profile.experienceRange],
     industry: profile.industry || "General",
@@ -164,7 +165,7 @@ export async function draftEmail(
 ): Promise<{email: string, company_intel: string}> {
   const payload = {
     job_titles: profile.targetRoles.length > 0 ? profile.targetRoles : ["Product Manager"],
-    skills: profile.coreSkills,
+    skills: [...(profile.coreSkills || []), ...(profile.tools || [])],
     actual_years_exp: smartRoundYears(profile.actualYears || 0),
     search_range: [profile.experienceRange],
     industry: profile.industry || "General",

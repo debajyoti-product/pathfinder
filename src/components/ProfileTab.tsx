@@ -38,6 +38,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
     }
   }, [initialProfile]);
   const [newSkill, setNewSkill] = useState("");
+  const [newTool, setNewTool] = useState("");
   const [newRole, setNewRole] = useState("");
 
   const addSkill = () => {
@@ -49,6 +50,17 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
 
   const removeSkill = (skill: string) => {
     setProfile((p) => ({ ...p, coreSkills: p.coreSkills.filter((s) => s !== skill) }));
+  };
+
+  const addTool = () => {
+    if (newTool.trim() && !profile.tools.includes(newTool.trim())) {
+      setProfile((p) => ({ ...p, tools: [...p.tools, newTool.trim()] }));
+      setNewTool("");
+    }
+  };
+
+  const removeTool = (tool: string) => {
+    setProfile((p) => ({ ...p, tools: p.tools.filter((t) => t !== tool) }));
   };
 
   const toggleRole = (index: number) => {
@@ -187,19 +199,12 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
 
       {/* Skills Hierarchy (Full Width Below) */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-6">
-        {(() => {
-          // Simple heuristic to split skills
-          const isTool = (s: string) => /api|react|node|python|java|aws|gcp|azure|sql|git|docker|kubernetes|jira|branch|gupshup|dashboard|postman|figma/i.test(s);
-          const competencies = profile.coreSkills.filter(s => !isTool(s));
-          const tools = profile.coreSkills.filter(s => isTool(s));
-          
-          return (
             <>
               {/* Core Competencies */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Competencies</h3>
                 <div className="flex flex-wrap items-center gap-2">
-                  {competencies.map((skill) => (
+                  {profile.coreSkills.map((skill) => (
                     <Badge key={skill} className="gap-1.5 pr-1.5 bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] text-white border-none py-1.5 px-3.5 rounded-full text-sm font-medium shadow-sm">
                       {skill}
                       <button onClick={() => removeSkill(skill)} className="hover:text-white/80 transition-colors bg-white/20 rounded-full p-0.5">
@@ -207,31 +212,16 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
                       </button>
                     </Badge>
                   ))}
-                  {competencies.length === 0 && <span className="text-sm text-muted-foreground italic">None detected</span>}
-                </div>
-              </div>
-
-              {/* Tools & Specifics */}
-              <div className="space-y-3 pt-4 border-t border-border/50">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Tools & Technologies</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  {tools.map((skill) => (
-                    <Badge key={skill} variant="outline" className="gap-1.5 pr-1.5 border-border bg-muted/30 text-muted-foreground py-1 px-3 rounded-full font-normal">
-                      {skill}
-                      <button onClick={() => removeSkill(skill)} className="hover:text-destructive transition-colors">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
+                  {profile.coreSkills.length === 0 && <span className="text-sm text-muted-foreground italic">None detected</span>}
                   
-                  <div className="flex items-center gap-2 bg-secondary/50 rounded-full pl-3 pr-1 py-1 border border-border/50">
+                  <div className="flex items-center gap-2 bg-secondary/50 rounded-full pl-3 pr-1 py-1 border border-border/50 ml-2">
                     <input
                       type="text"
                       value={newSkill}
                       onChange={(e) => setNewSkill(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addSkill()}
-                      placeholder="Add skill..."
-                      className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-24"
+                      placeholder="Add competency..."
+                      className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-32"
                     />
                     <Button size="icon" variant="default" onClick={addSkill} className="h-6 w-6 rounded-full bg-primary text-primary-foreground">
                       <Plus className="w-3 h-3" />
@@ -239,9 +229,36 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
                   </div>
                 </div>
               </div>
+
+              {/* Tools & Technologies */}
+              <div className="space-y-3 pt-4 border-t border-border/50">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Tools & Technologies</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  {profile.tools.map((tool) => (
+                    <Badge key={tool} variant="outline" className="gap-1.5 pr-1.5 border-border bg-muted/30 text-muted-foreground py-1 px-3 rounded-full font-normal">
+                      {tool}
+                      <button onClick={() => removeTool(tool)} className="hover:text-destructive transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  
+                  <div className="flex items-center gap-2 bg-secondary/50 rounded-full pl-3 pr-1 py-1 border border-border/50 ml-2">
+                    <input
+                      type="text"
+                      value={newTool}
+                      onChange={(e) => setNewTool(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addTool()}
+                      placeholder="Add tool..."
+                      className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-24"
+                    />
+                    <Button size="icon" variant="default" onClick={addTool} className="h-6 w-6 rounded-full bg-primary text-primary-foreground">
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </>
-          );
-        })()}
       </div>
 
       {/* Location + Remote Toggle + Actions */}

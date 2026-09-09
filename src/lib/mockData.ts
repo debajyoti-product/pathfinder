@@ -6,6 +6,7 @@ export interface RoleDetail {
 
 export interface ProfileData {
   coreSkills: string[];
+  tools: string[];
   targetRoles: string[]; // Still keep this for display/compatibility
   roles: RoleDetail[];   // Detailed roles from parser
   experienceRange: string;
@@ -45,6 +46,7 @@ export interface CompanyResearch {
 
 export const defaultProfile: ProfileData = {
   coreSkills: ["React", "TypeScript", "Node.js", "Python", "System Design"],
+  tools: [],
   targetRoles: ["Senior Frontend Engineer", "Full-Stack Developer", "Staff Engineer"],
   roles: [
     { title: "Senior Frontend Engineer", yearsExp: 3, active: true },
