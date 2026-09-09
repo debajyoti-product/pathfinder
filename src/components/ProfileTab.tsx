@@ -91,7 +91,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 flex-1 flex flex-col w-full">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">Profile Preview</h2>
@@ -245,18 +245,18 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
       </div>
 
       {/* Location + Remote Toggle + Actions */}
-      <div className="sticky bottom-0 z-40 bg-background/95 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 border-t border-border">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-muted-foreground" />
+      <div className="sticky bottom-0 z-40 bg-background/95 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 border-t border-border mt-auto">
+        <div className="flex items-center h-10 gap-4">
+          <div className="flex items-center gap-2 h-full">
+            <MapPin className="w-5 h-5 text-muted-foreground" />
             <Input 
-              className="h-8 w-[140px] text-sm bg-muted/40 border-border/50" 
+              className="w-[180px] bg-muted/40 border-border/50" 
               placeholder="e.g. Bangalore" 
               value={profile.location || ""}
               onChange={(e) => setProfile(p => ({ ...p, location: e.target.value }))}
             />
           </div>
-          <div className="flex items-center gap-2 border-l border-border pl-4">
+          <div className="flex items-center gap-3 border-l border-border/60 pl-4 h-full">
             <Switch
               checked={profile.remoteOnly}
               onCheckedChange={(checked) => setProfile((p) => ({ ...p, remoteOnly: checked }))}
@@ -264,7 +264,7 @@ const ProfileTab = ({ initialProfile, onConfirm, onCancel }: ProfileTabProps) =>
             <span className="text-sm text-foreground font-medium">Remote only</span>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <Button variant="outline" onClick={onCancel} className="gap-2 border-border text-muted-foreground hover:text-foreground">
             <RotateCcw className="w-4 h-4" />
             Cancel

@@ -121,15 +121,15 @@ const Index = () => {
               <HomeTab onUpload={handleUpload} isUploading={isUploading} />
             </TabsContent>
 
-            <TabsContent value="profile" forceMount hidden={activeTab !== "profile"} className={`mt-0 w-full ${activeTab === "profile" ? "block" : "hidden"}`}>
+            <TabsContent value="profile" forceMount hidden={activeTab !== "profile"} className={`mt-0 w-full flex-1 flex-col ${activeTab === "profile" ? "flex" : "hidden"}`}>
               <ProfileTab initialProfile={profile} onConfirm={handleConfirm} onCancel={handleCancel} />
             </TabsContent>
 
-            <TabsContent value="results" forceMount hidden={activeTab !== "results"} className={`mt-0 w-full ${activeTab === "results" ? "block" : "hidden"}`}>
+            <TabsContent value="results" forceMount hidden={activeTab !== "results"} className={`mt-0 w-full flex-1 flex-col ${activeTab === "results" ? "flex" : "hidden"}`}>
               <ResultsTab profile={profile} onGenerate={handleGenerate} />
             </TabsContent>
 
-            <TabsContent value="drafting" forceMount hidden={activeTab !== "drafting"} className={`mt-0 w-full ${activeTab === "drafting" ? "block" : "hidden"}`}>
+            <TabsContent value="drafting" forceMount hidden={activeTab !== "drafting"} className={`mt-0 w-full flex-1 flex-col ${activeTab === "drafting" ? "flex" : "hidden"}`}>
               {draftTarget && (
                 <DraftingTab result={draftTarget} profile={profile} onBack={handleBackToResults} />
               )}

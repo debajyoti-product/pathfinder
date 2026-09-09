@@ -218,10 +218,9 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                 {(!result.pocProfiles || result.pocProfiles.length === 0) ? (
                    <p className="text-xs text-muted-foreground italic">Unable to find Linkedin POC.</p>
                 ) : (
-                   <div className="grid gap-2">
+                    <div className="grid gap-2">
                      {result.pocProfiles.map((poc, idx) => {
                        const pKey = poc.id || `${result.id}-poc-${idx}`;
-                       const fBack = feedback[pKey];
                        return (
                           <div key={pKey} className="flex justify-between items-center bg-muted/40 p-2 rounded-lg border border-border/50 min-w-0">
                             <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
