@@ -41,7 +41,6 @@ from agents.resume_parser import ResumeParser
 from agents.jd_validator import extract_job_team_info
 from agents.email_drafter import EmailDrafter
 from agents.semantic_matcher import calculate_semantic_similarity
-from evals import _call_llama_json
 
 from services.serper_client import SerperClient
 from agents.metadata_parser import MetadataParser
@@ -634,31 +633,32 @@ async def evaluate_single_job(url, source, serper_title, queue, sem, profile_dic
             # Step 3: Validate using Agent 3 (GPT OSS 120B)
             eval_res = await asyncio.to_thread(extract_job_team_info, jd_clean, profile_dict)
             
-            if eval_res.get("isValidRange") is not True:
-                stats["post_filtered"] += 1
-                trace = eval_res.get("reasoning_trace", {})
-                if "error" in eval_res:
-                    log(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
-                else:
-                    log(f"LLM REJECT [{source}]: Exp={trace.get('experience_gate', '?')} | Loc={trace.get('location_gate', '?')} | URL={url[:80]}")
-                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
-                return
-                
-            # ── GATE POST: Deterministic Experience Post-Filter (Python) ────
             req_years_str = eval_res.get("required_years_extracted", "Unknown")
-            if is_experience_mismatch(req_years_str, candidate_years):
+            is_exp_mismatch = is_experience_mismatch(req_years_str, candidate_years)
+            
+            detected_loc = eval_res.get("detected_location", "Unknown")
+            is_loc_mismatch = is_location_mismatch_postllm(detected_loc, profile_dict.get("location", "India"))
+            
+            # Since 8B hallucinates math bounds, Python overrides the LLM's boolean decision
+            if "error" in eval_res:
                 stats["post_filtered"] += 1
-                log(f"POST-FILTER REJECT [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
+                log(f"LLM PARSE/API ERROR [{source}]: {eval_res['error']} | URL={url[:80]}")
+                await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
+                return
+
+            if is_exp_mismatch:
+                stats["post_filtered"] += 1
+                log(f"POST-FILTER REJECT (Python Logic) [{source}]: JD requires '{req_years_str}', candidate has {candidate_years}yr — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
                 
-            # ── GATE POST 2: Deterministic Location Post-Filter (Python) ────
-            detected_loc = eval_res.get("detected_location", "Unknown")
-            if is_location_mismatch_postllm(detected_loc, profile_dict.get("location", "India")):
+            if is_loc_mismatch:
                 stats["post_filtered"] += 1
                 log(f"POST-FILTER REJECT (Location) [{source}]: Location mismatch (Required: {detected_loc}, User: {profile_dict.get('location', 'India')}) — URL={url[:80]}")
                 await queue.put(f"data: {json.dumps({'type': 'remove', 'jobId': hash(url)})}\n\n")
                 return
+                
+            # If Python didn't reject it, we accept it regardless of the LLM's confused isValidRange!
                 
             # ── All gates passed — build the job card ────────────────────────
             company_name = eval_res.get("companyName") or extract_company_name(url, source)

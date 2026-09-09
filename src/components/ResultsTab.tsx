@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, PenLine, Loader2, Briefcase, User, Building2, TrendingUp, ThumbsUp, ThumbsDown, Info } from "lucide-react";
+import { ArrowUpRight, PenLine, Loader2, Briefcase, User, Building2, TrendingUp, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -29,8 +29,6 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
   const [status, setStatus] = useState("Discovering matched jobs...");
   const [activeJobs, setActiveJobs] = useState<Record<string, JobStatus>>({});
   const [stats, setStats] = useState<{searched: number, passed: number, rejected: number} | null>(null);
-
-  const [feedback, setFeedback] = useState<Record<string, 'up' | 'down'>>({});
 
   useEffect(() => {
     let active = true;
@@ -103,10 +101,6 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
     return () => { active = false; };
   }, [profile]);
 
-  const handleFeedback = (profileId: string, type: 'up' | 'down') => {
-    setFeedback(prev => ({ ...prev, [profileId]: type }));
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between mb-6">
@@ -114,7 +108,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
           {loading && (
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent border-dotted" />
           )}
-          <h2 className="text-xl font-bold">Companies ({results.length})</h2>
+          <h2 className="text-xl font-bold">Jobs ({results.length})</h2>
         </div>
         
         <Dialog>
@@ -153,7 +147,7 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
             {results.map((result) => (
             <div
               key={result.id}
-              className="group rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all duration-200 p-5 flex flex-col gap-4"
+              className="group rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all duration-200 p-4 flex flex-col gap-3 text-sm"
             >
               {/* Header */} 
               <div className="flex flex-col gap-3 flex-1 min-w-0">
@@ -182,11 +176,11 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                       rel="noopener noreferrer"
                       className="text-xs font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] hover:underline inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
                     >
-                      View Job <ExternalLink className="w-3 h-3 text-primary" />
+                      View Job <ArrowUpRight className="w-3.5 h-3.5 text-primary" />
                     </a>
                   ) : (
                     <span className="text-xs font-medium text-muted-foreground inline-flex items-center gap-1">
-                      View Job <ExternalLink className="w-3 h-3" />
+                      View Job <ArrowUpRight className="w-3.5 h-3.5" />
                     </span>
                   )}
                   {result.confidence && (
@@ -234,50 +228,25 @@ const ResultsTab = ({ profile, onGenerate }: ResultsTabProps) => {
                               <div className="flex items-center gap-2 text-sm font-medium min-w-0">
                                 <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                 <span className="truncate">{poc.name || "Unknown"}</span>
-                                {poc.linkedinUrl && (
-                                  <a
-                                    href={poc.linkedinUrl.startsWith("http") ? poc.linkedinUrl : `https://${poc.linkedinUrl}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-primary hover:underline inline-flex items-center gap-0.5 text-xs font-normal shrink-0"
-                                  >
-                                    <ExternalLink className="w-2.5 h-2.5 ml-1" />
-                                  </a>
-                                )}
                               </div>
                               <div className="text-xs text-muted-foreground truncate pl-5 max-w-full">
                                 {poc.currentRole}
                               </div>
                             </div>
-                             <div className="flex gap-1 pl-2">
-                               <Button 
-                                 variant="ghost" 
-                                 size="icon" 
-                                 className="h-7 w-7 text-primary hover:bg-primary/10"
-                                 title="Draft message for this contact"
-                                 onClick={() => onGenerate(result, poc.name, poc.linkedinUrl)}
-                               >
-                                 <PenLine className="w-3.5 h-3.5" />
-                               </Button>
-                               <Button 
-                                 variant="ghost" 
-                                 size="icon" 
-                                 className={`h-7 w-7 ${fBack === 'up' ? 'text-emerald-500 bg-emerald-500/10' : 'text-muted-foreground hover:text-emerald-500'}`}
-                                 onClick={() => handleFeedback(pKey, 'up')}
-                               >
-                                 <ThumbsUp className="w-3.5 h-3.5" />
-                               </Button>
-                               <Button 
-                                 variant="ghost" 
-                                 size="icon" 
-                                 className={`h-7 w-7 ${fBack === 'down' ? 'text-destructive bg-destructive/10' : 'text-muted-foreground hover:text-destructive'}`}
-                                 onClick={() => handleFeedback(pKey, 'down')}
-                               >
-                                 <ThumbsDown className="w-3.5 h-3.5" />
-                               </Button>
-                             </div>
-                         </div>
-                       );
+                            {poc.linkedinUrl && (
+                              <div className="flex pl-2 shrink-0">
+                                <a
+                                  href={poc.linkedinUrl.startsWith("http") ? poc.linkedinUrl : `https://${poc.linkedinUrl}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:bg-primary/10 p-1.5 rounded-full transition-colors flex items-center justify-center"
+                                >
+                                  <ArrowUpRight className="w-4 h-4" />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        );
                      })}
                    </div>
                 )}

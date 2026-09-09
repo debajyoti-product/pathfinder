@@ -73,7 +73,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
     return (
       <div 
         dangerouslySetInnerHTML={{ __html: html }} 
-        className="flex-1 min-h-[350px] bg-muted/30 border border-border rounded-md p-4 text-sm leading-relaxed text-foreground overflow-y-auto font-sans" 
+        className="flex-1 min-h-[350px] bg-muted/30 border border-border rounded-md p-4 text-sm leading-relaxed text-foreground font-sans" 
       />
     );
   };
@@ -149,7 +149,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
             <Newspaper className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Company Intel</h3>
           </div>
-          <div className="flex-1 overflow-y-auto max-h-[450px] pr-2">
+          <div className="flex-1 pr-2">
             {research ? (
               <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-secondary-foreground">
                 {research}

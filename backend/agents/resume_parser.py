@@ -1,7 +1,7 @@
 import datetime
 from dateutil.relativedelta import relativedelta
 from dateutil import parser as date_parser
-from evals import _call_llama_json
+from evals import _call_gpt_oss_json
 
 
 class ResumeParser:
@@ -37,13 +37,15 @@ Constraints
 
 If a field is not present, return NULL only then.
 
-Output Contract (JSON)
+## Output Contract
+You MUST output ONLY a valid JSON object wrapped in a markdown JSON block. Do not output raw text outside the JSON block.
+```json
 {{
   "experience_summary": [
     {{
       "role_type": "string (e.g., 'Product Manager', 'Analyst')",
-      "total_years_numeric": number,
-      "experience_range": "string (one of: 0-1 year, 1-3 years, 3-5 years, 5-8 years, 8-12 years, 12+ years)"
+      "total_years_numeric": 2.5,
+      "experience_range": "string (e.g., '1-3 years')"
     }}
   ],
   "skills": ["string", "string"],
@@ -56,11 +58,12 @@ Output Contract (JSON)
     }}
   ]
 }}
+```
 
 Resume:
 {text[:4000]}"""
 
-        result = _call_llama_json(prompt)
+        result = _call_gpt_oss_json(prompt)
         if "error" in result:
             raise ValueError(f"LLM Error: {result['error']}")
 

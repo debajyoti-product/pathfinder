@@ -1,4 +1,4 @@
-from evals import _call_qwen_json
+from evals import _call_gpt_oss_json
 
 
 def extract_job_team_info(jd_text: str, user_profile: dict) -> dict:
@@ -79,7 +79,7 @@ Extract the EXACT experience requirement from the JD. Then apply these rules:
   "required_years_extracted": "string"
 }}"""
 
-    res = _call_qwen_json(prompt)
+    res = _call_gpt_oss_json(prompt)
     if not res or "error" in res:
         err_msg = res.get("error", "Unknown Error") if isinstance(res, dict) else "Unknown Error"
         print(f"JD Validator Error: {err_msg}")

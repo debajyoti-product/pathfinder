@@ -1,10 +1,9 @@
 import json
-from evals import _call_llm_json, LLAMA_70B_MODELS
-from config import GROQ_API_KEY
+from evals import _call_gpt_oss_json
 
 class MetadataParser:
     def __init__(self):
-        self.api_key = GROQ_API_KEY
+        pass
 
     def parse_poc_snippets(self, search_results, target_company_name: str, target_department: str):
         """Extract 1-2 current employee profiles from Serper search snippets.
@@ -13,7 +12,7 @@ class MetadataParser:
             search_results: Raw Serper API response
             target_company_name: The company we want employees FROM
             target_department: The team/department (e.g., "Product", "Engineering")
-                              Used to filter out irrelevant departments
+                               Used to filter out irrelevant departments
         """
         snippets = []
         for res in search_results.get("organic", []):
@@ -76,7 +75,7 @@ Return 1-2 profiles maximum. If no profiles pass all rules, return an empty arra
 }}
 """
 
-        res = _call_llm_json(prompt, LLAMA_70B_MODELS, self.api_key, json_mode=True)
+        res = _call_gpt_oss_json(prompt)
         if "error" in res:
             print(f"MetadataParser API Error: {res}")
             return {"profiles": []}
