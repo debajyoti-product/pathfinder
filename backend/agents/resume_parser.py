@@ -23,8 +23,8 @@ Normalization Rules (Strict)
 - **Role Type:** Group similar titles into logical categories.
 - **Date Extraction:** Focus entirely on extracting the precise `start_date` and `end_date` (MM/YYYY) from the "Experience" section. A Python backend script will override your math, so just fetch the dates accurately!
 - **Experience Range Buckets:** Give your best estimate. The backend will override this too.
-- **Core Competencies:** Extract ONLY core functional and product skills (e.g., PRD, Market Research, AI Product Strategy, Evaluation/Evals, Prompt Engineering). Do NOT include tools or raw technologies here.
-- **Tools & Technologies:** Extract actual tools (e.g., Replit, Lovable, Jira, Figma) and raw technologies (e.g., AI, LLM, Python, React) into this separate list.
+- **Core Competencies:** Extract ALL functional, domain, business, and product skills (e.g., Agile, Scrum, Requirements Gathering, Gap Analysis, PRD, Market Research, AI Product Strategy). Do NOT drop methodologies, soft skills, or concepts. Do NOT include tools or raw technologies here.
+- **Tools & Technologies:** Extract ALL software, platforms, tools, and raw technologies mentioned (e.g., Jira, Confluence, Figma, Trello, Power BI, MySQL, Azure, Jenkins, REST API, Python, React, AI, LLM) into this separate list. Ensure no tool or technology is missed.
 
 Critical Calculation Constraints
 1. **Source Lockdown:** Extract experience dates ONLY from the "Experience" section. STRICTLY IGNORE any years mentioned in the "Summary," "About Me," or "Professional Profile" sections.
@@ -65,7 +65,7 @@ You MUST output ONLY a valid JSON object wrapped in a markdown JSON block. Do no
 ```
 
 Resume:
-{text[:4000]}"""
+{text[:20000]}"""
 
         result = _call_gpt_oss_json(prompt)
         if "error" in result:
