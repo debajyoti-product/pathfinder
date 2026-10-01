@@ -89,12 +89,12 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
           <div className="h-4 w-px bg-border" />
           <div>
             <span className="text-sm text-muted-foreground">Drafting for </span>
-            <span className="text-sm font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)]">{result.company}</span>
+            <span className="text-sm font-semibold text-[#F5C518]">{result.company}</span>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[500px]">
           {/* Skeleton intel */}
-          <div className="rounded-xl border border-border bg-card p-6 space-y-4 animate-pulse">
+          <div className="rounded-md border border-border bg-card p-6 space-y-4 animate-pulse">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-muted" />
               <div className="h-4 w-28 bg-muted rounded" />
@@ -107,7 +107,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
             ))}
           </div>
           {/* Skeleton draft */}
-          <div className="rounded-xl border border-border bg-card p-6 space-y-4 animate-pulse">
+          <div className="rounded-md border border-border bg-card p-6 space-y-4 animate-pulse">
             <div className="h-4 w-24 bg-muted rounded" />
             <div className="flex-1 rounded-lg bg-muted/30 min-h-[350px] flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
@@ -138,13 +138,13 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
               <span className="text-sm text-muted-foreground"> at </span>
             </>
           )}
-          <span className="text-sm font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)]">{result.company}</span>
+          <span className="text-sm font-semibold text-[#F5C518]">{result.company}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[500px]">
         {/* Left: Research */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-5 flex flex-col">
+        <div className="rounded-md border border-border bg-card p-6 space-y-5 flex flex-col">
           <div className="flex items-center gap-2">
             <Newspaper className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Company Intel</h3>
@@ -161,7 +161,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
         </div>
 
         {/* Right: Draft Editor */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4 flex flex-col">
+        <div className="rounded-md border border-border bg-card p-6 space-y-4 flex flex-col">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Email Draft</h3>
             <div className="flex gap-2 items-center">
@@ -199,7 +199,7 @@ const DraftingTab = ({ result, profile, onBack }: DraftingTabProps) => {
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{wordCount} words</span>
             <Button 
-              className="gap-2 bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] text-white hover:opacity-95 shadow-sm font-medium"
+              className="gap-2 bg-[#F5C518] text-[#1a1a1a] hover:bg-[#F5C518]/90 font-medium"
               onClick={handleCopy}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

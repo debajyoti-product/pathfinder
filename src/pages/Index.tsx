@@ -74,7 +74,7 @@ const Index = () => {
   ];
 
   return (
-    <div className="h-screen w-screen p-4 md:p-6 bg-background flex overflow-hidden">
+    <div className="h-screen w-screen p-4 md:p-6 flex overflow-hidden">
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-1 w-full h-full gap-4 md:gap-6 overflow-hidden" orientation="vertical">
         {/* Sidebar */}
         <aside className="w-64 md:w-72 shrink-0 flex flex-col gap-4 h-full">
@@ -90,22 +90,22 @@ const Index = () => {
               }} 
               className="flex items-center gap-3 hover:opacity-80 transition-opacity text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
             >
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] flex items-center justify-center shadow-md">
-                <Compass className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-md bg-[#F5C518] flex items-center justify-center">
+                <Compass className="w-4 h-4 text-[#1a1a1a]" />
               </div>
               <span className="text-xl font-bold tracking-tight text-foreground">Pathfinder</span>
             </button>
           </div>
 
-          {/* Navigation - Separate Enclosed Card */}
-          <div className="bg-card border border-border rounded-2xl p-3 shadow-md flex-1 flex flex-col">
+          {/* Navigation */}
+          <div className="bg-card border border-border rounded-lg p-3 flex-1 flex flex-col">
             <TabsList className="w-full h-auto bg-transparent border-none p-0 flex flex-col gap-1.5 shadow-none">
               {tabs.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
                   disabled={!tabEnabled[tab.value]}
-                  className="w-full justify-start px-4 py-2.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-[hsl(221,83%,53%)] data-[state=active]:to-[hsl(160,84%,20%)] data-[state=active]:text-white data-[state=active]:shadow-sm text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-muted-foreground transition-all duration-300 ease-out font-semibold text-xs tracking-wider uppercase text-left"
+                  className="w-full justify-start px-4 py-2.5 rounded-md data-[state=active]:bg-[#F5C518] data-[state=active]:text-[#1a1a1a] data-[state=active]:font-bold data-[state=active]:shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-muted-foreground transition-all duration-200 font-semibold text-xs tracking-wider uppercase text-left"
                 >
                   <span className="tracking-wider uppercase">{tab.label}</span>
                 </TabsTrigger>
@@ -114,8 +114,8 @@ const Index = () => {
           </div>
         </aside>
 
-        {/* Main Content - Separate Enclosed Card (Center Aligned) */}
-        <main className="flex-1 h-full bg-card border border-border rounded-2xl shadow-md overflow-y-auto flex flex-col items-center">
+        {/* Main Content */}
+        <main className="flex-1 h-full bg-card border border-border rounded-lg overflow-y-auto flex flex-col items-center">
           <div className="w-full max-w-5xl p-6 lg:p-10 flex-1 flex flex-col items-center">
             <TabsContent value="home" forceMount hidden={activeTab !== "home"} className={`mt-0 w-full flex-1 flex-col items-center justify-center ${activeTab === "home" ? "flex" : "hidden"}`}>
               <HomeTab onUpload={handleUpload} isUploading={isUploading} />

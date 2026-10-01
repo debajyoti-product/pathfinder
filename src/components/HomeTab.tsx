@@ -49,8 +49,8 @@ const HomeTab = ({ onUpload, isUploading = false }: HomeTabProps) => {
   if (isUploading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <div className="w-16 h-16 rounded-md border-2 border-[#F5C518] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-[#F5C518] animate-spin" />
         </div>
         <div className="text-center space-y-2">
           <h3 className="text-xl font-semibold text-foreground">Reading Resume</h3>
@@ -68,18 +68,26 @@ const HomeTab = ({ onUpload, isUploading = false }: HomeTabProps) => {
         onDragOver={handleDrag}
         onDrop={handleDrop}
         className={`
-          relative group cursor-pointer w-full max-w-lg rounded-2xl
+          relative group cursor-pointer w-full max-w-lg
           transition-all duration-300 ease-out
           ${isDragging ? "scale-[1.02]" : ""}
         `}
       >
-        <div className="w-full h-full p-12 flex flex-col items-center gap-5 text-center transition-all">
+        {/* Corner markers */}
+        <div className="absolute -top-2 -left-2 w-3 h-3 border-l-2 border-t-2 border-foreground/20" />
+        <div className="absolute -top-2 -right-2 w-3 h-3 border-r-2 border-t-2 border-foreground/20" />
+        <div className="absolute -bottom-2 -left-2 w-3 h-3 border-l-2 border-b-2 border-foreground/20" />
+        <div className="absolute -bottom-2 -right-2 w-3 h-3 border-r-2 border-b-2 border-foreground/20" />
+        
+        <div className={`w-full h-full p-12 flex flex-col items-center gap-5 text-center transition-all border-2 border-dashed rounded-md ${
+          isDragging ? 'border-[#F5C518] bg-[#F5C518]/5' : 'border-border hover:border-[#F5C518]/50'
+        }`}>
           <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
           
           <div
             className={`
-              p-4 rounded-xl transition-all duration-300 shadow-md shadow-primary/20
-              bg-gradient-to-br from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] text-white
+              p-4 rounded-md transition-all duration-300
+              bg-[#F5C518] text-[#1a1a1a]
               ${isDragging ? "scale-110" : "group-hover:scale-105"}
             `}
           >
@@ -91,7 +99,7 @@ const HomeTab = ({ onUpload, isUploading = false }: HomeTabProps) => {
           </div>
           
           <div>
-            <p className="text-transparent bg-clip-text bg-gradient-to-r from-[hsl(221,83%,53%)] to-[hsl(160,84%,20%)] font-bold text-lg tracking-tight">
+            <p className="text-foreground font-bold text-lg tracking-tight">
               {isDragging ? "Release to upload" : "Drop your resume"}
             </p>
             <p className="text-muted-foreground text-xs mt-1.5 font-semibold tracking-wider uppercase">
